@@ -1,7 +1,9 @@
 package mongo
 
 import (
+	"github.com/edaniel30/mongo-kit-go/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -61,3 +63,12 @@ type IndexOptions = options.IndexOptions
 
 // DistinctOptions is a convenient alias for options.DistinctOptions
 type DistinctOptions = options.DistinctOptions
+
+// Config holds MongoDB client configuration
+type Config = models.Config
+
+// Option is a function that modifies Config
+type Option = models.Option
+
+// MongoDB primitive types for convenience
+type ObjectID = primitive.ObjectID

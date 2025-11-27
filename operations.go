@@ -10,7 +10,7 @@ import (
 )
 
 // InsertOne inserts a document into a collection
-func (c *Client) InsertOne(ctx context.Context, collection string, document any) (any, error) {
+func (c *Client) InsertOne(ctx context.Context, collection string, document any) (*mongo.InsertOneResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -24,11 +24,11 @@ func (c *Client) InsertOne(ctx context.Context, collection string, document any)
 		return nil, errors.NewOperationError("insert one", err)
 	}
 
-	return result.InsertedID, nil
+	return result, nil
 }
 
 // InsertMany inserts multiple documents into a collection
-func (c *Client) InsertMany(ctx context.Context, collection string, documents []any) ([]any, error) {
+func (c *Client) InsertMany(ctx context.Context, collection string, documents []any) (*mongo.InsertManyResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -42,7 +42,7 @@ func (c *Client) InsertMany(ctx context.Context, collection string, documents []
 		return nil, errors.NewOperationError("insert many", err)
 	}
 
-	return result.InsertedIDs, nil
+	return result, nil
 }
 
 // FindOne finds a single document matching the filter
@@ -144,39 +144,39 @@ func (c *Client) ReplaceOne(ctx context.Context, collection string, filter any, 
 }
 
 // DeleteOne deletes a single document matching the filter
-func (c *Client) DeleteOne(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (int64, error) {
+func (c *Client) DeleteOne(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	if c.closed {
-		return 0, errors.ErrClientClosed()
+		return nil, errors.ErrClientClosed()
 	}
 
 	coll := c.GetCollection(collection)
 	result, err := coll.DeleteOne(ctx, filter, opts...)
 	if err != nil {
-		return 0, errors.NewOperationError("delete one", err)
+		return nil, errors.NewOperationError("delete one", err)
 	}
 
-	return result.DeletedCount, nil
+	return result, nil
 }
 
 // DeleteMany deletes all documents matching the filter
-func (c *Client) DeleteMany(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (int64, error) {
+func (c *Client) DeleteMany(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	if c.closed {
-		return 0, errors.ErrClientClosed()
+		return nil, errors.ErrClientClosed()
 	}
 
 	coll := c.GetCollection(collection)
 	result, err := coll.DeleteMany(ctx, filter, opts...)
 	if err != nil {
-		return 0, errors.NewOperationError("delete many", err)
+		return nil, errors.NewOperationError("delete many", err)
 	}
 
-	return result.DeletedCount, nil
+	return result, nil
 }
 
 // CountDocuments counts documents matching the filter

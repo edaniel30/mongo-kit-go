@@ -4,14 +4,6 @@ import (
 	"github.com/edaniel30/mongo-kit-go/errors"
 	"github.com/edaniel30/mongo-kit-go/internal/helpers"
 	"github.com/edaniel30/mongo-kit-go/models"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-)
-
-type (
-	// Config holds MongoDB client configuration
-	Config = models.Config
-	// Option is a function that modifies Config
-	Option = models.Option
 )
 
 var (
@@ -95,6 +87,3 @@ var (
 	// BSONToMap converts a BSON document to a map
 	BSONToMap = helpers.BSONToMap
 )
-
-// MongoDB primitive types for convenience
-type ObjectID = primitive.ObjectID
