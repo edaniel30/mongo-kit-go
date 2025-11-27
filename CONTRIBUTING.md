@@ -74,10 +74,6 @@ mongo-kit-go/
 ├── models/              # Configuration and data models
 ├── internal/            # Internal packages (not exported)
 │   └── helpers/        # Internal helper functions
-├── middleware/          # Optional middleware integrations
-├── examples/            # Usage examples
-│   ├── basic/          # Basic usage examples
-│   └── advanced/       # Advanced usage examples
 ├── mongo.go            # Main client implementation
 ├── operations.go       # CRUD operations
 ├── query.go            # Query and update builders

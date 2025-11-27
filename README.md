@@ -17,6 +17,7 @@ A comprehensive, thread-safe MongoDB client library for Go with convenient metho
 - 🔄 **Transaction Support** - Session management for multi-document transactions
 - ⏱️ **Context Support** - All operations support context for timeouts and cancellation
 - 🛡️ **Error Handling** - Rich error types with proper error wrapping
+- 🎨 **Zero Dependencies** - Only depends on official MongoDB driver
 
 ## Installation
 
@@ -59,14 +60,14 @@ func main() {
 
     // Insert a document
     user := User{Name: "John", Email: "john@example.com"}
-    id, err := client.InsertOne(ctx, "myapp", "users", user)
+    id, err := client.InsertOne(ctx, "users", user)
     if err != nil {
         log.Fatal(err)
     }
 
     // Find a document
     var found User
-    err = client.FindOne(ctx, "myapp", "users", bson.M{"email": "john@example.com"}, &found)
+    err = client.FindOne(ctx, "users", bson.M{"email": "john@example.com"}, &found)
     if err != nil {
         log.Fatal(err)
     }
@@ -135,14 +136,16 @@ client, err := mongo.New(
 
 ## CRUD Operations
 
+All operations use the database configured in `mongo.New()`. This keeps the API clean and simple.
+
 ### Insert Operations
 
 ```go
 // Insert one document
-id, err := client.InsertOne(ctx, "db", "collection", document)
+id, err := client.InsertOne(ctx, "users", document)
 
 // Insert many documents
-ids, err := client.InsertMany(ctx, "db", "collection", []interface{}{doc1, doc2})
+ids, err := client.InsertMany(ctx, "users", []interface{}{doc1, doc2})
 ```
 
 ### Find Operations
@@ -150,41 +153,41 @@ ids, err := client.InsertMany(ctx, "db", "collection", []interface{}{doc1, doc2}
 ```go
 // Find one document
 var user User
-err := client.FindOne(ctx, "db", "users", bson.M{"email": "test@example.com"}, &user)
+err := client.FindOne(ctx, "users", bson.M{"email": "test@example.com"}, &user)
 
 // Find all matching documents
 var users []User
-err := client.Find(ctx, "db", "users", bson.M{"age": bson.M{"$gte": 18}}, &users)
+err := client.Find(ctx, "users", bson.M{"age": bson.M{"$gte": 18}}, &users)
 
 // Count documents
-count, err := client.CountDocuments(ctx, "db", "users", bson.M{"active": true})
+count, err := client.CountDocuments(ctx, "users", bson.M{"active": true})
 ```
 
 ### Update Operations
 
 ```go
 // Update one document
-result, err := client.UpdateOne(ctx, "db", "users",
+result, err := client.UpdateOne(ctx, "users",
     bson.M{"email": "test@example.com"},
     bson.M{"$set": bson.M{"age": 30}})
 
 // Update many documents
-result, err := client.UpdateMany(ctx, "db", "users",
+result, err := client.UpdateMany(ctx, "users",
     bson.M{"age": bson.M{"$lt": 18}},
     bson.M{"$set": bson.M{"minor": true}})
 
 // Replace one document
-result, err := client.ReplaceOne(ctx, "db", "users", filter, newDocument)
+result, err := client.ReplaceOne(ctx, "users", filter, newDocument)
 ```
 
 ### Delete Operations
 
 ```go
 // Delete one document
-count, err := client.DeleteOne(ctx, "db", "users", bson.M{"email": "test@example.com"})
+count, err := client.DeleteOne(ctx, "users", bson.M{"email": "test@example.com"})
 
 // Delete many documents
-count, err := client.DeleteMany(ctx, "db", "users", bson.M{"active": false})
+count, err := client.DeleteMany(ctx, "users", bson.M{"active": false})
 ```
 
 ## Query Builder
@@ -427,8 +430,29 @@ err := client.Close(context.Background())
 
 See the [examples](examples/) directory for complete working examples:
 
-- [Basic Usage](examples/basic/main.go) - Simple CRUD operations
-- [Advanced Usage](examples/advanced/main.go) - Query builders, aggregations, indexes
+- **[examples/basic/](examples/basic/)** - Simple CRUD operations with MongoDB
+
+## Design Philosophy
+
+This library is designed for applications that use a **single database**. The database is configured once during client initialization, keeping your code clean and simple.
+
+```go
+// Configure database once
+client, _ := mongo.New(
+    mongo.DefaultConfig(),
+    mongo.WithDatabase("myapp"),  // ← Set once
+)
+
+// Use everywhere without repeating database name
+client.InsertOne(ctx, "users", user)       // Clean ✓
+client.Find(ctx, "posts", filter, &posts)   // Simple ✓
+```
+
+This design choice makes the API:
+- **Cleaner** - Less repetition
+- **Simpler** - Fewer parameters
+- **Safer** - Can't accidentally use wrong database
+- **Perfect for** - Most web applications, APIs, microservices
 
 ## Best Practices
 

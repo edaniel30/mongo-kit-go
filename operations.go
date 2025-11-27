@@ -9,8 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// InsertOne inserts a single document into the specified collection
-func (c *Client) InsertOne(ctx context.Context, database, collection string, document any) (any, error) {
+// InsertOne inserts a document into a collection
+func (c *Client) InsertOne(ctx context.Context, collection string, document any) (any, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -18,7 +18,7 @@ func (c *Client) InsertOne(ctx context.Context, database, collection string, doc
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.InsertOne(ctx, document)
 	if err != nil {
 		return nil, errors.NewOperationError("insert one", err)
@@ -27,8 +27,8 @@ func (c *Client) InsertOne(ctx context.Context, database, collection string, doc
 	return result.InsertedID, nil
 }
 
-// InsertMany inserts multiple documents into the specified collection
-func (c *Client) InsertMany(ctx context.Context, database, collection string, documents []any) ([]any, error) {
+// InsertMany inserts multiple documents into a collection
+func (c *Client) InsertMany(ctx context.Context, collection string, documents []any) ([]any, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -36,7 +36,7 @@ func (c *Client) InsertMany(ctx context.Context, database, collection string, do
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.InsertMany(ctx, documents)
 	if err != nil {
 		return nil, errors.NewOperationError("insert many", err)
@@ -46,7 +46,7 @@ func (c *Client) InsertMany(ctx context.Context, database, collection string, do
 }
 
 // FindOne finds a single document matching the filter
-func (c *Client) FindOne(ctx context.Context, database, collection string, filter any, result any, opts ...*options.FindOneOptions) error {
+func (c *Client) FindOne(ctx context.Context, collection string, filter any, result any, opts ...*options.FindOneOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -54,7 +54,7 @@ func (c *Client) FindOne(ctx context.Context, database, collection string, filte
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	err := coll.FindOne(ctx, filter, opts...).Decode(result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -67,7 +67,7 @@ func (c *Client) FindOne(ctx context.Context, database, collection string, filte
 }
 
 // Find finds all documents matching the filter
-func (c *Client) Find(ctx context.Context, database, collection string, filter any, results any, opts ...*options.FindOptions) error {
+func (c *Client) Find(ctx context.Context, collection string, filter any, results any, opts ...*options.FindOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -75,7 +75,7 @@ func (c *Client) Find(ctx context.Context, database, collection string, filter a
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	cursor, err := coll.Find(ctx, filter, opts...)
 	if err != nil {
 		return errors.NewOperationError("find", err)
@@ -90,7 +90,7 @@ func (c *Client) Find(ctx context.Context, database, collection string, filter a
 }
 
 // UpdateOne updates a single document matching the filter
-func (c *Client) UpdateOne(ctx context.Context, database, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+func (c *Client) UpdateOne(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -98,7 +98,7 @@ func (c *Client) UpdateOne(ctx context.Context, database, collection string, fil
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.UpdateOne(ctx, filter, update, opts...)
 	if err != nil {
 		return nil, errors.NewOperationError("update one", err)
@@ -108,7 +108,7 @@ func (c *Client) UpdateOne(ctx context.Context, database, collection string, fil
 }
 
 // UpdateMany updates all documents matching the filter
-func (c *Client) UpdateMany(ctx context.Context, database, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+func (c *Client) UpdateMany(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -116,7 +116,7 @@ func (c *Client) UpdateMany(ctx context.Context, database, collection string, fi
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.UpdateMany(ctx, filter, update, opts...)
 	if err != nil {
 		return nil, errors.NewOperationError("update many", err)
@@ -126,7 +126,7 @@ func (c *Client) UpdateMany(ctx context.Context, database, collection string, fi
 }
 
 // ReplaceOne replaces a single document matching the filter
-func (c *Client) ReplaceOne(ctx context.Context, database, collection string, filter any, replacement any, opts ...*options.ReplaceOptions) (*mongo.UpdateResult, error) {
+func (c *Client) ReplaceOne(ctx context.Context, collection string, filter any, replacement any, opts ...*options.ReplaceOptions) (*mongo.UpdateResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -134,7 +134,7 @@ func (c *Client) ReplaceOne(ctx context.Context, database, collection string, fi
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.ReplaceOne(ctx, filter, replacement, opts...)
 	if err != nil {
 		return nil, errors.NewOperationError("replace one", err)
@@ -144,7 +144,7 @@ func (c *Client) ReplaceOne(ctx context.Context, database, collection string, fi
 }
 
 // DeleteOne deletes a single document matching the filter
-func (c *Client) DeleteOne(ctx context.Context, database, collection string, filter any, opts ...*options.DeleteOptions) (int64, error) {
+func (c *Client) DeleteOne(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (int64, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -152,7 +152,7 @@ func (c *Client) DeleteOne(ctx context.Context, database, collection string, fil
 		return 0, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.DeleteOne(ctx, filter, opts...)
 	if err != nil {
 		return 0, errors.NewOperationError("delete one", err)
@@ -162,7 +162,7 @@ func (c *Client) DeleteOne(ctx context.Context, database, collection string, fil
 }
 
 // DeleteMany deletes all documents matching the filter
-func (c *Client) DeleteMany(ctx context.Context, database, collection string, filter any, opts ...*options.DeleteOptions) (int64, error) {
+func (c *Client) DeleteMany(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (int64, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -170,7 +170,7 @@ func (c *Client) DeleteMany(ctx context.Context, database, collection string, fi
 		return 0, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.DeleteMany(ctx, filter, opts...)
 	if err != nil {
 		return 0, errors.NewOperationError("delete many", err)
@@ -180,7 +180,7 @@ func (c *Client) DeleteMany(ctx context.Context, database, collection string, fi
 }
 
 // CountDocuments counts documents matching the filter
-func (c *Client) CountDocuments(ctx context.Context, database, collection string, filter any, opts ...*options.CountOptions) (int64, error) {
+func (c *Client) CountDocuments(ctx context.Context, collection string, filter any, opts ...*options.CountOptions) (int64, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -188,7 +188,7 @@ func (c *Client) CountDocuments(ctx context.Context, database, collection string
 		return 0, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	count, err := coll.CountDocuments(ctx, filter, opts...)
 	if err != nil {
 		return 0, errors.NewOperationError("count documents", err)
@@ -198,7 +198,7 @@ func (c *Client) CountDocuments(ctx context.Context, database, collection string
 }
 
 // Aggregate executes an aggregation pipeline
-func (c *Client) Aggregate(ctx context.Context, database, collection string, pipeline any, results any, opts ...*options.AggregateOptions) error {
+func (c *Client) Aggregate(ctx context.Context, collection string, pipeline any, results any, opts ...*options.AggregateOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -206,7 +206,7 @@ func (c *Client) Aggregate(ctx context.Context, database, collection string, pip
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	cursor, err := coll.Aggregate(ctx, pipeline, opts...)
 	if err != nil {
 		return errors.NewOperationError("aggregate", err)
@@ -221,7 +221,7 @@ func (c *Client) Aggregate(ctx context.Context, database, collection string, pip
 }
 
 // FindOneAndUpdate finds a single document and updates it
-func (c *Client) FindOneAndUpdate(ctx context.Context, database, collection string, filter any, update any, result any, opts ...*options.FindOneAndUpdateOptions) error {
+func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter any, update any, result any, opts ...*options.FindOneAndUpdateOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -229,7 +229,7 @@ func (c *Client) FindOneAndUpdate(ctx context.Context, database, collection stri
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	err := coll.FindOneAndUpdate(ctx, filter, update, opts...).Decode(result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -242,7 +242,7 @@ func (c *Client) FindOneAndUpdate(ctx context.Context, database, collection stri
 }
 
 // FindOneAndReplace finds a single document and replaces it
-func (c *Client) FindOneAndReplace(ctx context.Context, database, collection string, filter any, replacement any, result any, opts ...*options.FindOneAndReplaceOptions) error {
+func (c *Client) FindOneAndReplace(ctx context.Context, collection string, filter any, replacement any, result any, opts ...*options.FindOneAndReplaceOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -250,7 +250,7 @@ func (c *Client) FindOneAndReplace(ctx context.Context, database, collection str
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	err := coll.FindOneAndReplace(ctx, filter, replacement, opts...).Decode(result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -263,7 +263,7 @@ func (c *Client) FindOneAndReplace(ctx context.Context, database, collection str
 }
 
 // FindOneAndDelete finds a single document and deletes it
-func (c *Client) FindOneAndDelete(ctx context.Context, database, collection string, filter any, result any, opts ...*options.FindOneAndDeleteOptions) error {
+func (c *Client) FindOneAndDelete(ctx context.Context, collection string, filter any, result any, opts ...*options.FindOneAndDeleteOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -271,7 +271,7 @@ func (c *Client) FindOneAndDelete(ctx context.Context, database, collection stri
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	err := coll.FindOneAndDelete(ctx, filter, opts...).Decode(result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -284,7 +284,7 @@ func (c *Client) FindOneAndDelete(ctx context.Context, database, collection stri
 }
 
 // BulkWrite executes multiple write operations in bulk
-func (c *Client) BulkWrite(ctx context.Context, database, collection string, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+func (c *Client) BulkWrite(ctx context.Context, collection string, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -292,7 +292,7 @@ func (c *Client) BulkWrite(ctx context.Context, database, collection string, mod
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	result, err := coll.BulkWrite(ctx, models, opts...)
 	if err != nil {
 		return nil, errors.NewOperationError("bulk write", err)
@@ -302,7 +302,7 @@ func (c *Client) BulkWrite(ctx context.Context, database, collection string, mod
 }
 
 // Distinct gets distinct values for a specified field
-func (c *Client) Distinct(ctx context.Context, database, collection string, fieldName string, filter any, opts ...*options.DistinctOptions) ([]any, error) {
+func (c *Client) Distinct(ctx context.Context, collection string, fieldName string, filter any, opts ...*options.DistinctOptions) ([]any, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -310,7 +310,7 @@ func (c *Client) Distinct(ctx context.Context, database, collection string, fiel
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	results, err := coll.Distinct(ctx, fieldName, filter, opts...)
 	if err != nil {
 		return nil, errors.NewOperationError("distinct", err)
@@ -319,8 +319,8 @@ func (c *Client) Distinct(ctx context.Context, database, collection string, fiel
 	return results, nil
 }
 
-// CreateIndex creates a new index on the specified collection
-func (c *Client) CreateIndex(ctx context.Context, database, collection string, keys any, opts ...*options.IndexOptions) (string, error) {
+// CreateIndex creates a new index on a collection
+func (c *Client) CreateIndex(ctx context.Context, collection string, keys any, opts ...*options.IndexOptions) (string, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -328,7 +328,7 @@ func (c *Client) CreateIndex(ctx context.Context, database, collection string, k
 		return "", errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	indexModel := mongo.IndexModel{
 		Keys:    keys,
 		Options: options.Index(),
@@ -346,8 +346,8 @@ func (c *Client) CreateIndex(ctx context.Context, database, collection string, k
 	return indexName, nil
 }
 
-// DropIndex drops an index from the specified collection
-func (c *Client) DropIndex(ctx context.Context, database, collection string, indexName string) error {
+// DropIndex drops an index from a collection
+func (c *Client) DropIndex(ctx context.Context, collection string, indexName string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -355,7 +355,7 @@ func (c *Client) DropIndex(ctx context.Context, database, collection string, ind
 		return errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	_, err := coll.Indexes().DropOne(ctx, indexName)
 	if err != nil {
 		return errors.NewOperationError("drop index", err)
@@ -364,8 +364,8 @@ func (c *Client) DropIndex(ctx context.Context, database, collection string, ind
 	return nil
 }
 
-// ListIndexes lists all indexes on the specified collection
-func (c *Client) ListIndexes(ctx context.Context, database, collection string) ([]bson.M, error) {
+// ListIndexes lists all indexes on a collection
+func (c *Client) ListIndexes(ctx context.Context, collection string) ([]bson.M, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -373,7 +373,7 @@ func (c *Client) ListIndexes(ctx context.Context, database, collection string) (
 		return nil, errors.ErrClientClosed()
 	}
 
-	coll := c.GetCollectionFrom(database, collection)
+	coll := c.GetCollection(collection)
 	cursor, err := coll.Indexes().List(ctx)
 	if err != nil {
 		return nil, errors.NewOperationError("list indexes", err)
@@ -386,4 +386,22 @@ func (c *Client) ListIndexes(ctx context.Context, database, collection string) (
 	}
 
 	return indexes, nil
+}
+
+// ListCollections lists all collections in the default database
+func (c *Client) ListCollections(ctx context.Context) ([]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return nil, errors.ErrClientClosed()
+	}
+
+	db := c.client.Database(c.config.Database)
+	cursor, err := db.ListCollectionNames(ctx, bson.D{})
+	if err != nil {
+		return nil, errors.NewOperationError("list collections", err)
+	}
+
+	return cursor, nil
 }
