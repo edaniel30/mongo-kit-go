@@ -4,6 +4,7 @@ import (
 	"github.com/edaniel30/mongo-kit-go/errors"
 	"github.com/edaniel30/mongo-kit-go/internal/helpers"
 	"github.com/edaniel30/mongo-kit-go/models"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var (
@@ -86,4 +87,22 @@ var (
 	MergeBSON = helpers.MergeBSON
 	// BSONToMap converts a BSON document to a map
 	BSONToMap = helpers.BSONToMap
+)
+
+// Re-export MongoDB driver errors
+var (
+	// ErrNoDocuments is returned when a query that expects a document doesn't find one
+	ErrNoDocuments = mongo.ErrNoDocuments
+	// ErrNilDocument is returned when a nil document is passed to an insert operation
+	ErrNilDocument = mongo.ErrNilDocument
+	// ErrNilValue is returned when a nil value is passed where it's not allowed
+	ErrNilValue = mongo.ErrNilValue
+	// ErrEmptySlice is returned when an empty slice is passed where it's not allowed
+	ErrEmptySlice = mongo.ErrEmptySlice
+	// ErrUnacknowledgedWrite is returned when attempting to get results from an unacknowledged write
+	ErrUnacknowledgedWrite = mongo.ErrUnacknowledgedWrite
+	// ErrClientDisconnected is returned when an operation is attempted on a disconnected client
+	ErrClientDisconnected = mongo.ErrClientDisconnected
+	// ErrInvalidIndexValue is returned when an invalid index value is encountered
+	ErrInvalidIndexValue = mongo.ErrInvalidIndexValue
 )
