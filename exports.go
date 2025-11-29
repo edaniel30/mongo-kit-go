@@ -5,6 +5,7 @@ import (
 	"github.com/edaniel30/mongo-kit-go/internal/helpers"
 	"github.com/edaniel30/mongo-kit-go/models"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
@@ -105,4 +106,40 @@ var (
 	ErrClientDisconnected = mongo.ErrClientDisconnected
 	// ErrInvalidIndexValue is returned when an invalid index value is encountered
 	ErrInvalidIndexValue = mongo.ErrInvalidIndexValue
+)
+
+// Re-export options constructors for convenience
+var (
+	// Index creates a new IndexOptions instance for configuring index creation
+	Index = options.Index
+	// Find creates a new FindOptions instance for configuring find operations
+	Find = options.Find
+	// FindOne creates a new FindOneOptions instance for configuring findOne operations
+	FindOne = options.FindOne
+	// Update creates a new UpdateOptions instance for configuring update operations
+	Update = options.Update
+	// Replace creates a new ReplaceOptions instance for configuring replace operations
+	Replace = options.Replace
+	// Delete creates a new DeleteOptions instance for configuring delete operations
+	Delete = options.Delete
+	// InsertOne creates a new InsertOneOptions instance for configuring insertOne operations
+	InsertOne = options.InsertOne
+	// InsertMany creates a new InsertManyOptions instance for configuring insertMany operations
+	InsertMany = options.InsertMany
+	// CreateCollection creates a new CreateCollectionOptions instance for configuring collection creation
+	CreateCollection = options.CreateCollection
+	// Aggregate creates a new AggregateOptions instance for configuring aggregate operations
+	Aggregate = options.Aggregate
+	// Count creates a new CountOptions instance for configuring count operations
+	Count = options.Count
+	// Distinct creates a new DistinctOptions instance for configuring distinct operations
+	Distinct = options.Distinct
+	// FindOneAndUpdate creates a new FindOneAndUpdateOptions instance
+	FindOneAndUpdate = options.FindOneAndUpdate
+	// FindOneAndReplace creates a new FindOneAndReplaceOptions instance
+	FindOneAndReplace = options.FindOneAndReplace
+	// FindOneAndDelete creates a new FindOneAndDeleteOptions instance
+	FindOneAndDelete = options.FindOneAndDelete
+	// BulkWrite creates a new BulkWriteOptions instance for configuring bulk write operations
+	BulkWrite = options.BulkWrite
 )
