@@ -4,6 +4,7 @@ import (
 	"github.com/edaniel30/mongo-kit-go/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -66,6 +67,12 @@ type DistinctOptions = options.DistinctOptions
 
 // CreateCollectionOptions is a convenient alias for options.CreateCollectionOptions
 type CreateCollectionOptions = options.CreateCollectionOptions
+
+// IndexModel represents an index to be created
+type IndexModel = mongo.IndexModel
+
+// WriteModel is an interface for bulk write operations
+type WriteModel = mongo.WriteModel
 
 // Config holds MongoDB client configuration
 type Config = models.Config
