@@ -64,6 +64,9 @@ type IndexOptions = options.IndexOptions
 // DistinctOptions is a convenient alias for options.DistinctOptions
 type DistinctOptions = options.DistinctOptions
 
+// CreateCollectionOptions is a convenient alias for options.CreateCollectionOptions
+type CreateCollectionOptions = options.CreateCollectionOptions
+
 // Config holds MongoDB client configuration
 type Config = models.Config
 

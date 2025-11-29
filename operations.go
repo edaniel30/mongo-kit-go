@@ -405,3 +405,21 @@ func (c *Client) ListCollections(ctx context.Context) ([]string, error) {
 
 	return cursor, nil
 }
+
+// CreateCollection creates a new collection in the default database
+func (c *Client) CreateCollection(ctx context.Context, collection string, opts ...*options.CreateCollectionOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return errors.ErrClientClosed()
+	}
+
+	db := c.client.Database(c.config.Database)
+	err := db.CreateCollection(ctx, collection, opts...)
+	if err != nil {
+		return errors.NewOperationError("create collection", err)
+	}
+
+	return nil
+}
