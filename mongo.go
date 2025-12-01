@@ -28,7 +28,6 @@ import (
 
 	"github.com/edaniel30/mongo-kit-go/errors"
 	"github.com/edaniel30/mongo-kit-go/models"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -243,28 +242,6 @@ func (c *Client) ListDatabases(ctx context.Context, filter interface{}) ([]strin
 	return databases, nil
 }
 
-// ListCollections lists all collections in the specified database
-func (c *Client) ListCollections(ctx context.Context, databaseName string) ([]string, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.closed {
-		return nil, errors.ErrClientClosed()
-	}
-
-	dbName := databaseName
-	if dbName == "" {
-		dbName = c.config.Database
-	}
-
-	db := c.client.Database(dbName)
-	cursor, err := db.ListCollectionNames(ctx, bson.D{})
-	if err != nil {
-		return nil, errors.NewOperationError("list collections", err)
-	}
-
-	return cursor, nil
-}
 
 // GetConfig returns a copy of the client configuration
 func (c *Client) GetConfig() models.Config {

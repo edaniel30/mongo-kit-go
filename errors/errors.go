@@ -1,6 +1,8 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // configError represents a configuration validation error
 type configError struct {
@@ -11,12 +13,10 @@ func (e *configError) Error() string {
 	return fmt.Sprintf("config error: %s", e.message)
 }
 
-// ErrInvalidConfig returns a configuration error with the given message
 func ErrInvalidConfig(message string) error {
 	return &configError{message: message}
 }
 
-// operationError represents a runtime operation error
 type operationError struct {
 	operation string
 	cause     error
@@ -33,7 +33,6 @@ func (e *operationError) Unwrap() error {
 	return e.cause
 }
 
-// NewOperationError creates a new operation error
 func NewOperationError(operation string, cause error) error {
 	return &operationError{
 		operation: operation,
@@ -41,7 +40,6 @@ func NewOperationError(operation string, cause error) error {
 	}
 }
 
-// ErrConnectionFailed returns an error indicating connection failure
 func ErrConnectionFailed(cause error) error {
 	return &operationError{
 		operation: "connect",
@@ -49,7 +47,6 @@ func ErrConnectionFailed(cause error) error {
 	}
 }
 
-// ErrClientClosed returns an error indicating the client is closed
 func ErrClientClosed() error {
 	return &operationError{
 		operation: "client operation",
@@ -57,7 +54,6 @@ func ErrClientClosed() error {
 	}
 }
 
-// ErrInvalidOperation returns an error indicating an invalid operation
 func ErrInvalidOperation(message string) error {
 	return &operationError{
 		operation: "validation",
@@ -65,15 +61,6 @@ func ErrInvalidOperation(message string) error {
 	}
 }
 
-// ErrDocumentNotFound returns an error indicating document was not found
-func ErrDocumentNotFound() error {
-	return &operationError{
-		operation: "find",
-		cause:     fmt.Errorf("document not found"),
-	}
-}
-
-// ErrDatabaseNotFound returns an error indicating database was not found
 func ErrDatabaseNotFound(dbName string) error {
 	return &operationError{
 		operation: "database access",
@@ -81,7 +68,6 @@ func ErrDatabaseNotFound(dbName string) error {
 	}
 }
 
-// ErrCollectionNotFound returns an error indicating collection was not found
 func ErrCollectionNotFound(collName string) error {
 	return &operationError{
 		operation: "collection access",
