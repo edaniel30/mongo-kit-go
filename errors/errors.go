@@ -1,6 +1,8 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // configError represents a configuration validation error
 type configError struct {
@@ -56,13 +58,6 @@ func ErrInvalidOperation(message string) error {
 	return &operationError{
 		operation: "validation",
 		cause:     fmt.Errorf("%s", message),
-	}
-}
-
-func ErrDocumentNotFound() error {
-	return &operationError{
-		operation: "find",
-		cause:     fmt.Errorf("document not found"),
 	}
 }
 

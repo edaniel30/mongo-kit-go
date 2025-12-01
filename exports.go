@@ -4,6 +4,7 @@ import (
 	"github.com/edaniel30/mongo-kit-go/errors"
 	"github.com/edaniel30/mongo-kit-go/internal/helpers"
 	"github.com/edaniel30/mongo-kit-go/models"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -50,7 +51,7 @@ var (
 	WithHeartbeatInterval = models.WithHeartbeatInterval
 )
 
-// Re-export error functions
+// Re-export custom error functions
 var (
 	// ErrInvalidConfig returns a configuration error with the given message
 	ErrInvalidConfig = errors.ErrInvalidConfig
@@ -60,8 +61,6 @@ var (
 	ErrClientClosed = errors.ErrClientClosed
 	// ErrInvalidOperation returns an error indicating an invalid operation
 	ErrInvalidOperation = errors.ErrInvalidOperation
-	// ErrDocumentNotFound returns an error indicating document was not found
-	ErrDocumentNotFound = errors.ErrDocumentNotFound
 	// ErrDatabaseNotFound returns an error indicating database was not found
 	ErrDatabaseNotFound = errors.ErrDatabaseNotFound
 	// ErrCollectionNotFound returns an error indicating collection was not found
@@ -90,7 +89,7 @@ var (
 	BSONToMap = helpers.BSONToMap
 )
 
-// Re-export MongoDB driver errors
+// Re-export MongoDB driver sentinel errors for use with errors.Is()
 var (
 	// ErrNoDocuments is returned when a query that expects a document doesn't find one
 	ErrNoDocuments = mongo.ErrNoDocuments
@@ -106,9 +105,21 @@ var (
 	ErrClientDisconnected = mongo.ErrClientDisconnected
 	// ErrInvalidIndexValue is returned when an invalid index value is encountered
 	ErrInvalidIndexValue = mongo.ErrInvalidIndexValue
+	// ErrInvalidObjectID is returned when an invalid ObjectID hex string is provided
+	ErrInvalidObjectID = primitive.ErrInvalidHex
 )
 
-// Re-export options constructors for convenience
+// Re-export MongoDB driver error helper functions
+var (
+	// IsDuplicateKeyError checks if an error is a duplicate key error (E11000)
+	IsDuplicateKeyError = mongo.IsDuplicateKeyError
+	// IsTimeout checks if an error is a timeout error
+	IsTimeout = mongo.IsTimeout
+	// IsNetworkError checks if an error is a network error
+	IsNetworkError = mongo.IsNetworkError
+)
+
+// Options constructors for convenience
 var (
 	// Index creates a new IndexOptions instance for configuring index creation
 	Index = options.Index
