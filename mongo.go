@@ -124,15 +124,15 @@ func New(cfg models.Config, opts ...models.Option) (*Client, error) {
 	}, nil
 }
 
-// GetDatabase returns a handle to the specified database
-// If name is empty, returns the default database from config
+// GetDatabase returns a handle to the specified database.
+// If name is empty, returns the default database from config.
+//
+// Note: This method does not verify if the client is closed. It's safe to call
+// after checkState() has been called. For standalone use, verify the client
+// state first using IsClosed() or IsConnected().
 func (c *Client) GetDatabase(name string) *mongo.Database {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
-	if c.closed {
-		panic("mongo: client is closed")
-	}
 
 	dbName := name
 	if dbName == "" {
@@ -142,12 +142,20 @@ func (c *Client) GetDatabase(name string) *mongo.Database {
 	return c.client.Database(dbName)
 }
 
-// GetCollection returns a handle to the specified collection in the default database
+// GetCollection returns a handle to the specified collection in the default database.
+//
+// Note: This method does not verify if the client is closed. It's safe to call
+// after checkState() has been called. For standalone use, verify the client
+// state first using IsClosed() or IsConnected().
 func (c *Client) GetCollection(collectionName string) *mongo.Collection {
 	return c.GetDatabase("").Collection(collectionName)
 }
 
-// GetCollectionFrom returns a handle to the specified collection in the specified database
+// GetCollectionFrom returns a handle to the specified collection in the specified database.
+//
+// Note: This method does not verify if the client is closed. It's safe to call
+// after checkState() has been called. For standalone use, verify the client
+// state first using IsClosed() or IsConnected().
 func (c *Client) GetCollectionFrom(databaseName, collectionName string) *mongo.Collection {
 	return c.GetDatabase(databaseName).Collection(collectionName)
 }
@@ -221,7 +229,7 @@ func (c *Client) UseSession(ctx context.Context, fn func(mongo.SessionContext) e
 }
 
 // ListDatabases lists all databases on the MongoDB server
-func (c *Client) ListDatabases(ctx context.Context, filter interface{}) ([]string, error) {
+func (c *Client) ListDatabases(ctx context.Context, filter any) ([]string, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -242,12 +250,23 @@ func (c *Client) ListDatabases(ctx context.Context, filter interface{}) ([]strin
 	return databases, nil
 }
 
-
 // GetConfig returns a copy of the client configuration
 func (c *Client) GetConfig() models.Config {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.config
+}
+
+// checkState verifies that the client is not closed and acquires a read lock.
+// The caller must defer c.mu.RUnlock() after calling this method successfully.
+// Returns ErrClientClosed if the client has been closed.
+func (c *Client) checkState() error {
+	c.mu.RLock()
+	if c.closed {
+		c.mu.RUnlock()
+		return errors.ErrClientClosed()
+	}
+	return nil
 }
 
 // parseReadPreference converts string preference to readpref.ReadPref
