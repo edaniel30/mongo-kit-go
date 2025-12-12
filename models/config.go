@@ -22,7 +22,6 @@ type Config struct {
 	Timeout                time.Duration // Default timeout for operations
 
 	// Additional settings
-	Debug             bool          // Enable debug logging
 	RetryWrites       bool          // Enable automatic retry of write operations
 	RetryReads        bool          // Enable automatic retry of read operations
 	AppName           string        // Application name for MongoDB logs
@@ -43,7 +42,6 @@ func DefaultConfig() Config {
 		ServerSelectionTimeout: 5 * time.Second,
 		SocketTimeout:          10 * time.Second,
 		Timeout:                10 * time.Second,
-		Debug:                  false,
 		RetryWrites:            true,
 		RetryReads:             true,
 		AppName:                "",
@@ -102,12 +100,6 @@ func WithSocketTimeout(timeout time.Duration) Option {
 func WithTimeout(timeout time.Duration) Option {
 	return func(c *Config) {
 		c.Timeout = timeout
-	}
-}
-
-func WithDebug(debug bool) Option {
-	return func(c *Config) {
-		c.Debug = debug
 	}
 }
 
