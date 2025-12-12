@@ -110,7 +110,6 @@ client, err := mongo.New(
     mongo.WithReplicaSet("rs0"),
     mongo.WithReadPreference("secondaryPreferred"),
     mongo.WithRetryWrites(true),
-    mongo.WithDebug(true),
 )
 ```
 
@@ -131,7 +130,6 @@ client, err := mongo.New(
 | `WithReadPreference(pref)` | Read preference mode | `primary` |
 | `WithRetryWrites(bool)` | Enable retry writes | `true` |
 | `WithRetryReads(bool)` | Enable retry reads | `true` |
-| `WithDebug(bool)` | Enable debug logging | `false` |
 | `WithDirectConnection(bool)` | Direct connection mode | `false` |
 
 ## CRUD Operations

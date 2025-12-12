@@ -31,8 +31,6 @@ var (
 	WithSocketTimeout = models.WithSocketTimeout
 	// WithTimeout sets the default operation timeout
 	WithTimeout = models.WithTimeout
-	// WithDebug enables or disables debug logging
-	WithDebug = models.WithDebug
 	// WithRetryWrites enables or disables automatic retry of write operations
 	WithRetryWrites = models.WithRetryWrites
 	// WithRetryReads enables or disables automatic retry of read operations
