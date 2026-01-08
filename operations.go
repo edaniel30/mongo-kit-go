@@ -32,10 +32,12 @@ import (
 //	}
 //	fmt.Println("Inserted ID:", result.InsertedID)
 func (c *Client) InsertOne(ctx context.Context, collection string, document any) (*mongo.InsertOneResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.InsertOne(ctx, document)
@@ -69,10 +71,12 @@ func (c *Client) InsertOne(ctx context.Context, collection string, document any)
 //	}
 //	fmt.Printf("Inserted %d documents\n", len(result.InsertedIDs))
 func (c *Client) InsertMany(ctx context.Context, collection string, documents []any) (*mongo.InsertManyResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.InsertMany(ctx, documents)
@@ -107,10 +111,12 @@ func (c *Client) InsertMany(ctx context.Context, collection string, documents []
 //	}
 //	fmt.Printf("Found user: %s\n", user.Name)
 func (c *Client) FindOne(ctx context.Context, collection string, filter any, result any, opts ...*options.FindOneOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	err := coll.FindOne(ctx, filter, opts...).Decode(result)
@@ -148,10 +154,12 @@ func (c *Client) FindOne(ctx context.Context, collection string, filter any, res
 //	}
 //	fmt.Printf("Found %d users\n", len(users))
 func (c *Client) Find(ctx context.Context, collection string, filter any, results any, opts ...*options.FindOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	cursor, err := coll.Find(ctx, filter, opts...)
@@ -190,10 +198,12 @@ func (c *Client) Find(ctx context.Context, collection string, filter any, result
 //	}
 //	fmt.Printf("Modified %d document(s)\n", result.ModifiedCount)
 func (c *Client) UpdateOne(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.UpdateOne(ctx, filter, update, opts...)
@@ -227,10 +237,12 @@ func (c *Client) UpdateOne(ctx context.Context, collection string, filter any, u
 //	}
 //	fmt.Printf("Modified %d document(s)\n", result.ModifiedCount)
 func (c *Client) UpdateMany(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.UpdateMany(ctx, filter, update, opts...)
@@ -265,10 +277,12 @@ func (c *Client) UpdateMany(ctx context.Context, collection string, filter any, 
 //	}
 //	fmt.Printf("Replaced %d document(s)\n", result.ModifiedCount)
 func (c *Client) ReplaceOne(ctx context.Context, collection string, filter any, replacement any, opts ...*options.ReplaceOptions) (*mongo.UpdateResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.ReplaceOne(ctx, filter, replacement, opts...)
@@ -302,10 +316,12 @@ func (c *Client) ReplaceOne(ctx context.Context, collection string, filter any, 
 //	    fmt.Println("No document was deleted")
 //	}
 func (c *Client) DeleteOne(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.DeleteOne(ctx, filter, opts...)
@@ -337,10 +353,12 @@ func (c *Client) DeleteOne(ctx context.Context, collection string, filter any, o
 //	}
 //	fmt.Printf("Deleted %d inactive user(s)\n", result.DeletedCount)
 func (c *Client) DeleteMany(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.DeleteMany(ctx, filter, opts...)
@@ -372,10 +390,12 @@ func (c *Client) DeleteMany(ctx context.Context, collection string, filter any, 
 //	}
 //	fmt.Printf("Found %d active users\n", count)
 func (c *Client) CountDocuments(ctx context.Context, collection string, filter any, opts ...*options.CountOptions) (int64, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return 0, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	count, err := coll.CountDocuments(ctx, filter, opts...)
@@ -414,10 +434,12 @@ func (c *Client) CountDocuments(ctx context.Context, collection string, filter a
 //	    fmt.Printf("Country: %s, Count: %d\n", result["_id"], result["count"])
 //	}
 func (c *Client) Aggregate(ctx context.Context, collection string, pipeline any, results any, opts ...*options.AggregateOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	cursor, err := coll.Aggregate(ctx, pipeline, opts...)
@@ -459,10 +481,12 @@ func (c *Client) Aggregate(ctx context.Context, collection string, pipeline any,
 //	}
 //	fmt.Printf("User %s logged in %d times\n", user.Name, user.LoginCount)
 func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter any, update any, result any, opts ...*options.FindOneAndUpdateOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	err := coll.FindOneAndUpdate(ctx, filter, update, opts...).Decode(result)
@@ -503,10 +527,12 @@ func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter
 //	}
 //	fmt.Printf("Old user name: %s\n", oldUser.Name)
 func (c *Client) FindOneAndReplace(ctx context.Context, collection string, filter any, replacement any, result any, opts ...*options.FindOneAndReplaceOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	err := coll.FindOneAndReplace(ctx, filter, replacement, opts...).Decode(result)
@@ -547,10 +573,12 @@ func (c *Client) FindOneAndReplace(ctx context.Context, collection string, filte
 //	}
 //	fmt.Printf("Deleted user: %s\n", deletedUser.Name)
 func (c *Client) FindOneAndDelete(ctx context.Context, collection string, filter any, result any, opts ...*options.FindOneAndDeleteOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	err := coll.FindOneAndDelete(ctx, filter, opts...).Decode(result)
@@ -591,10 +619,12 @@ func (c *Client) FindOneAndDelete(ctx context.Context, collection string, filter
 //	}
 //	fmt.Printf("Inserted: %d, Modified: %d, Deleted: %d\n", result.InsertedCount, result.ModifiedCount, result.DeletedCount)
 func (c *Client) BulkWrite(ctx context.Context, collection string, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	result, err := coll.BulkWrite(ctx, models, opts...)
@@ -630,10 +660,12 @@ func (c *Client) BulkWrite(ctx context.Context, collection string, models []mong
 //	    fmt.Println(country)
 //	}
 func (c *Client) Distinct(ctx context.Context, collection string, fieldName string, filter any, opts ...*options.DistinctOptions) ([]any, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	results, err := coll.Distinct(ctx, fieldName, filter, opts...)
@@ -671,10 +703,12 @@ func (c *Client) Distinct(ctx context.Context, collection string, fieldName stri
 //	compoundKeys := bson.D{{"country", 1}, {"city", 1}, {"created_at", -1}}
 //	indexName, err := client.CreateIndex(ctx, "users", compoundKeys)
 func (c *Client) CreateIndex(ctx context.Context, collection string, keys any, opts ...*options.IndexOptions) (string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return "", err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	indexModel := mongo.IndexModel{Keys: keys}
@@ -736,10 +770,12 @@ func (c *Client) CreateIndex(ctx context.Context, collection string, keys any, o
 //	    fmt.Printf("Collection '%s': created %d indexes\n", collection, len(indexNames))
 //	}
 func (c *Client) CreateIndexes(ctx context.Context, indexes map[string][]mongo.IndexModel) (map[string][]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	result := make(map[string][]string)
 
@@ -778,10 +814,12 @@ func (c *Client) CreateIndexes(ctx context.Context, indexes map[string][]mongo.I
 //	}
 //	fmt.Println("Index dropped successfully")
 func (c *Client) DropIndex(ctx context.Context, collection string, indexName string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	_, err := coll.Indexes().DropOne(ctx, indexName)
@@ -812,10 +850,12 @@ func (c *Client) DropIndex(ctx context.Context, collection string, indexName str
 //	    fmt.Printf("Index: %s, Keys: %v\n", index["name"], index["key"])
 //	}
 func (c *Client) ListIndexes(ctx context.Context, collection string) ([]bson.M, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	coll := c.GetCollection(collection)
 	cursor, err := coll.Indexes().List(ctx)
@@ -852,10 +892,12 @@ func (c *Client) ListIndexes(ctx context.Context, collection string) ([]bson.M, 
 //	    fmt.Println("-", name)
 //	}
 func (c *Client) ListCollections(ctx context.Context) ([]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return nil, err
 	}
-	defer c.mu.RUnlock()
 
 	db := c.client.Database(c.config.Database)
 	cursor, err := db.ListCollectionNames(ctx, bson.D{})
@@ -905,10 +947,12 @@ func (c *Client) ListCollections(ctx context.Context) ([]string, error) {
 //	validatorOpts := options.CreateCollection().SetValidator(validator)
 //	err := client.CreateCollection(ctx, "validated_users", validatorOpts)
 func (c *Client) CreateCollection(ctx context.Context, collection string, opts ...*options.CreateCollectionOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	db := c.client.Database(c.config.Database)
 	err := db.CreateCollection(ctx, collection, opts...)
@@ -956,10 +1000,12 @@ func (c *Client) CreateCollection(ctx context.Context, collection string, opts .
 //	}
 //	fmt.Println("All collections created successfully")
 func (c *Client) CreateCollections(ctx context.Context, collections map[string]*options.CreateCollectionOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.checkState(); err != nil {
 		return err
 	}
-	defer c.mu.RUnlock()
 
 	db := c.client.Database(c.config.Database)
 
