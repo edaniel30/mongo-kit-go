@@ -257,13 +257,12 @@ func (c *Client) GetConfig() models.Config {
 	return c.config
 }
 
-// checkState verifies that the client is not closed and acquires a read lock.
-// The caller must defer c.mu.RUnlock() after calling this method successfully.
+// checkState verifies that the client is not closed.
+// IMPORTANT: This method does NOT acquire any locks. The caller MUST hold c.mu.RLock()
+// before calling this method.
 // Returns ErrClientClosed if the client has been closed.
 func (c *Client) checkState() error {
-	c.mu.RLock()
 	if c.closed {
-		c.mu.RUnlock()
 		return errors.ErrClientClosed()
 	}
 	return nil
