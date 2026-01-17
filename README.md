@@ -75,7 +75,7 @@ Comprehensive guides for each component:
 
 | Guide | Description |
 |-------|-------------|
-| **[doperations](docs/operations.md)** | CRUD operations, indexes, transactions, aggregations |
+| **[operations](docs/operations.md)** | CRUD operations, indexes, transactions, aggregations |
 | **[query](docs/query.md)** | QueryBuilder, UpdateBuilder, AggregationBuilder |
 | **[repository](docs/repository.md)** | Type-safe repository pattern with generics |
 | **[context](docs/context.md)** | Context helpers and timeout management |
@@ -133,24 +133,6 @@ See [docs/repository.md](docs/repository.md) for complete examples.
 - **Repository pattern** - Use for type safety and cleaner code
 - **Query builders** - Use for complex queries instead of raw bson.M
 - **Handle errors** - Check for `mongo.ErrNoDocuments` and operation errors
-
-## Project Structure
-
-```
-mongo-kit-go/
-├── client.go          # Core client and connection management
-├── config.go          # Configuration and options
-├── operations.go      # Database operations (CRUD, indexes, etc.)
-├── query.go           # Query, Update, and Aggregation builders
-├── repository.go      # Generic repository pattern
-├── context.go         # Context helpers
-├── errors.go          # Error types
-└── docs/
-    ├── operations.md  # Operations guide
-    ├── query.md       # Builders guide
-    ├── repository.md  # Repository guide
-    └── context.md     # Context guide
-```
 
 ## Contributing
 
