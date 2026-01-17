@@ -82,7 +82,7 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 
 	if err := mongoClient.Ping(ctx, nil); err != nil {
 		if disconnectErr := mongoClient.Disconnect(context.Background()); disconnectErr != nil {
-			return nil, newConnectionError(fmt.Errorf("ping failed: %w, disconnect also failed: %v", err, disconnectErr))
+			return nil, newConnectionError(fmt.Errorf("ping failed: %w, disconnect also failed: %w", err, disconnectErr))
 		}
 		return nil, newConnectionError(err)
 	}

@@ -2,6 +2,7 @@ package mongo_kit
 
 import (
 	"context"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -152,7 +153,7 @@ func (r *Repository[T]) Exists(ctx context.Context, filter any) (bool, error) {
 // ExistsByID checks if a document with the given _id exists.
 func (r *Repository[T]) ExistsByID(ctx context.Context, id any) (bool, error) {
 	_, err := r.FindByID(ctx, id)
-	if err == mongo.ErrNoDocuments {
+	if errors.Is(err, mongo.ErrNoDocuments) {
 		return false, nil
 	}
 	if err != nil {
