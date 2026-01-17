@@ -68,7 +68,7 @@ func (c *Client) FindOne(ctx context.Context, collection string, filter any, res
 	err := coll.FindOne(ctx, filter, opts...).Decode(result)
 	if err != nil {
 		// Return ErrNoDocuments directly for clearer error handling
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return err
 		}
 		return newOperationError("find one", err)
@@ -263,7 +263,7 @@ func (c *Client) FindOneAndUpdate(ctx context.Context, collection string, filter
 	err := coll.FindOneAndUpdate(ctx, filter, update, opts...).Decode(result)
 	if err != nil {
 		// Return ErrNoDocuments directly for clearer error handling
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return err
 		}
 		return newOperationError("find one and update", err)
@@ -286,7 +286,7 @@ func (c *Client) FindOneAndReplace(ctx context.Context, collection string, filte
 	err := coll.FindOneAndReplace(ctx, filter, replacement, opts...).Decode(result)
 	if err != nil {
 		// Return ErrNoDocuments directly for clearer error handling
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return err
 		}
 		return newOperationError("find one and replace", err)
@@ -309,7 +309,7 @@ func (c *Client) FindOneAndDelete(ctx context.Context, collection string, filter
 	err := coll.FindOneAndDelete(ctx, filter, opts...).Decode(result)
 	if err != nil {
 		// Return ErrNoDocuments directly for clearer error handling
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return err
 		}
 		return newOperationError("find one and delete", err)
