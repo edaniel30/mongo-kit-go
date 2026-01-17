@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-coverage test-coverage-html test-race clean
+.PHONY: test test-unit test-coverage test-coverage-html test-race setup clean
 
 COVERAGE_THRESHOLD=90
 COVERAGE_FILE=coverage.out
@@ -56,6 +56,11 @@ test-coverage-html:
 test-race:
 	@echo "Running tests with race detector..."
 	@go test -race -v ./...
+
+setup:
+	@echo "Installing pre-commit hooks..."
+	@pre-commit install
+	@echo "Setup complete!"
 
 clean:
 	@rm -f $(COVERAGE_FILE) coverage.html
