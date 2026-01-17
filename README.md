@@ -1,23 +1,9 @@
 # mongo-kit-go
 
-A comprehensive, thread-safe MongoDB client library for Go with convenient methods for connection management and database operations.
+A clean, type-safe MongoDB client library for Go with intuitive API and comprehensive tooling.
 
-[![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.21%2B-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
-## Features
-
-- 🚀 **Simple & Intuitive API** - Clean, easy-to-use interface for MongoDB operations
-- 🔧 **Functional Options Pattern** - Flexible configuration with sensible defaults
-- 🔒 **Thread-Safe** - Safe for concurrent use across goroutines
-- ⚡ **Connection Pooling** - Built-in connection pool management
-- 🎯 **Generic CRUD Operations** - Comprehensive set of database operations
-- 🔍 **Query Builders** - Fluent interface for building complex queries
-- 📊 **Aggregation Support** - Full support for MongoDB aggregation pipelines
-- 🔄 **Transaction Support** - Session management for multi-document transactions
-- ⏱️ **Context Support** - All operations support context for timeouts and cancellation
-- 🛡️ **Error Handling** - Rich error types with proper error wrapping
-- 🎨 **Zero Dependencies** - Only depends on official MongoDB driver
 
 ## Installation
 
@@ -28,443 +14,147 @@ go get github.com/edaniel30/mongo-kit-go
 ## Quick Start
 
 ```go
-package main
+import "github.com/edaniel30/mongo-kit-go"
 
-import (
-    "context"
-    "log"
-
-    "github.com/edaniel30/mongo-kit-go"
-    "go.mongodb.org/mongo-driver/bson"
+// Create client
+client, _ := mongo_kit.New(
+    mongo_kit.DefaultConfig(),
+    mongo_kit.WithURI("mongodb://localhost:27017"),
+    mongo_kit.WithDatabase("myapp"),
 )
+defer client.Close(ctx)
 
-type User struct {
-    ID    mongo.ObjectID `bson:"_id,omitempty"`
-    Name  string         `bson:"name"`
-    Email string         `bson:"email"`
-}
-
-func main() {
-    // Create client with default configuration
-    client, err := mongo.New(
-        mongo.DefaultConfig(),
-        mongo.WithURI("mongodb://localhost:27017"),
-        mongo.WithDatabase("myapp"),
-    )
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer client.Close(context.Background())
-
-    ctx := context.Background()
-
-    // Insert a document
-    user := User{Name: "John", Email: "john@example.com"}
-    id, err := client.InsertOne(ctx, "users", user)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Find a document
-    var found User
-    err = client.FindOne(ctx, "users", bson.M{"email": "john@example.com"}, &found)
-    if err != nil {
-        log.Fatal(err)
-    }
-}
+// Insert & Find
+id, _ := client.InsertOne(ctx, "users", bson.M{"name": "John"})
+var user bson.M
+client.FindOne(ctx, "users", bson.M{"_id": id}, &user)
 ```
 
-## Configuration
-
-### Default Configuration
-
-```go
-cfg := mongo.DefaultConfig()
-// Returns:
-// {
-//     URI: "mongodb://localhost:27017",
-//     Database: "default",
-//     MaxPoolSize: 100,
-//     MinPoolSize: 10,
-//     ConnectTimeout: 10 * time.Second,
-//     ServerSelectionTimeout: 5 * time.Second,
-//     SocketTimeout: 10 * time.Second,
-//     Timeout: 10 * time.Second,
-//     RetryWrites: true,
-//     RetryReads: true,
-//     ReadPreference: "primary",
-// }
-```
-
-### Custom Configuration
-
-```go
-client, err := mongo.New(
-    mongo.DefaultConfig(),
-    mongo.WithURI("mongodb://user:pass@host:port"),
-    mongo.WithDatabase("production"),
-    mongo.WithMaxPoolSize(200),
-    mongo.WithMinPoolSize(20),
-    mongo.WithTimeout(30 * time.Second),
-    mongo.WithAppName("MyService"),
-    mongo.WithReplicaSet("rs0"),
-    mongo.WithReadPreference("secondaryPreferred"),
-    mongo.WithRetryWrites(true),
-)
-```
-
-## Available Options
+## Configuration Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
 | `WithURI(uri)` | MongoDB connection URI | `mongodb://localhost:27017` |
 | `WithDatabase(name)` | Default database name | `default` |
-| `WithMaxPoolSize(size)` | Maximum connection pool size | `100` |
-| `WithMinPoolSize(size)` | Minimum connection pool size | `10` |
-| `WithConnectTimeout(duration)` | Connection timeout | `10s` |
-| `WithServerSelectionTimeout(duration)` | Server selection timeout | `5s` |
-| `WithSocketTimeout(duration)` | Socket operation timeout | `10s` |
-| `WithTimeout(duration)` | Default operation timeout | `10s` |
-| `WithAppName(name)` | Application name for logs | `""` |
+| `WithMaxPoolSize(size)` | Max connections | `100` |
+| `WithTimeout(duration)` | Operation timeout | `10s` |
+| `WithAppName(name)` | Application identifier | `""` |
 | `WithReplicaSet(name)` | Replica set name | `""` |
-| `WithReadPreference(pref)` | Read preference mode | `primary` |
-| `WithRetryWrites(bool)` | Enable retry writes | `true` |
-| `WithRetryReads(bool)` | Enable retry reads | `true` |
-| `WithDirectConnection(bool)` | Direct connection mode | `false` |
 
-## CRUD Operations
+See `config.go` for all available options.
 
-All operations use the database configured in `mongo.New()`. This keeps the API clean and simple.
+## Core Concepts
 
-### Insert Operations
-
+**Client-Based Operations** - Direct database operations via the client
 ```go
-// Insert one document
-id, err := client.InsertOne(ctx, "users", document)
-
-// Insert many documents
-ids, err := client.InsertMany(ctx, "users", []interface{}{doc1, doc2})
+client.InsertOne(ctx, "users", document)
+client.Find(ctx, "users", filter, &results)
 ```
 
-### Find Operations
-
+**Repository Pattern** - Type-safe, collection-specific interface
 ```go
-// Find one document
-var user User
-err := client.FindOne(ctx, "users", bson.M{"email": "test@example.com"}, &user)
-
-// Find all matching documents
-var users []User
-err := client.Find(ctx, "users", bson.M{"age": bson.M{"$gte": 18}}, &users)
-
-// Count documents
-count, err := client.CountDocuments(ctx, "users", bson.M{"active": true})
+userRepo := mongo_kit.NewRepository[User](client, "users")
+users, _ := userRepo.FindAll(ctx)
 ```
 
-### Update Operations
-
+**Fluent Builders** - Build complex queries, updates, and aggregations
 ```go
-// Update one document
-result, err := client.UpdateOne(ctx, "users",
-    bson.M{"email": "test@example.com"},
-    bson.M{"$set": bson.M{"age": 30}})
-
-// Update many documents
-result, err := client.UpdateMany(ctx, "users",
-    bson.M{"age": bson.M{"$lt": 18}},
-    bson.M{"$set": bson.M{"minor": true}})
-
-// Replace one document
-result, err := client.ReplaceOne(ctx, "users", filter, newDocument)
+qb := mongo_kit.NewQueryBuilder().Equals("status", "active").Limit(10)
+users, _ := userRepo.FindWithBuilder(ctx, qb)
 ```
 
-### Delete Operations
-
+**Context Helpers** - Simplified timeout management
 ```go
-// Delete one document
-count, err := client.DeleteOne(ctx, "users", bson.M{"email": "test@example.com"})
-
-// Delete many documents
-count, err := client.DeleteMany(ctx, "users", bson.M{"active": false})
+ctx, cancel := client.NewContext()        // For CLI/scripts
+ctx, cancel := client.WithTimeout(ctx)    // For HTTP handlers
 ```
 
-## Query Builder
+## Documentation
 
-Build complex queries with a fluent interface:
+Comprehensive guides for each component:
 
-```go
-qb := mongo.NewQueryBuilder()
-filter, opts := qb.
-    Equals("category", "Electronics").
-    GreaterThan("price", 100).
-    In("brand", "Apple", "Samsung", "Sony").
-    Regex("name", ".*phone.*", "i").
-    Sort("price", false).  // descending
-    Limit(10).
-    Skip(20).
-    Build()
+| Guide | Description |
+|-------|-------------|
+| **[doperations](docs/operations.md)** | CRUD operations, indexes, transactions, aggregations |
+| **[query](docs/query.md)** | QueryBuilder, UpdateBuilder, AggregationBuilder |
+| **[repository](docs/repository.md)** | Type-safe repository pattern with generics |
+| **[context](docs/context.md)** | Context helpers and timeout management |
 
-var products []Product
-err := client.Find(ctx, "db", "products", filter, &products, opts)
-```
+### Quick Links by Topic
 
-### Query Builder Methods
+**Getting Started:**
+- [CRUD Operations](docs/operations.md#crud-operations) - Insert, Find, Update, Delete
+- [Basic Queries](docs/operations.md#query-operations) - Count, Exists, Distinct
 
-- `Equals(key, value)` - Equality filter
-- `NotEquals(key, value)` - Not equals filter
-- `GreaterThan(key, value)` - Greater than filter
-- `GreaterThanOrEqual(key, value)` - Greater than or equal filter
-- `LessThan(key, value)` - Less than filter
-- `LessThanOrEqual(key, value)` - Less than or equal filter
-- `In(key, ...values)` - In array filter
-- `NotIn(key, ...values)` - Not in array filter
-- `Exists(key, bool)` - Field exists filter
-- `Regex(key, pattern, options)` - Regex filter
-- `And(...conditions)` - AND logical operator
-- `Or(...conditions)` - OR logical operator
-- `Limit(n)` - Limit results
-- `Skip(n)` - Skip results
-- `Sort(field, ascending)` - Sort results
+**Advanced Features:**
+- [Repository Pattern](docs/repository.md) - Type-safe operations
+- [Query Builder](docs/query.md#querybuilder) - Fluent query interface
+- [Aggregations](docs/query.md#aggregationbuilder) - Pipeline builder
+- [Transactions](docs/operations.md#transactions) - Multi-document ACID
+- [Change Streams](docs/operations.md#change-streams) - Real-time monitoring
 
-## Update Builder
+**Best Practices:**
+- [Context Management](docs/context.md) - Timeout strategies
+- [Error Handling](docs/operations.md#error-handling) - Type checking
+- [Batch Operations](docs/repository.md#batch-operations) - Bulk writes
 
-Build complex update operations:
+## Example: Repository Pattern
 
 ```go
-ub := mongo.NewUpdateBuilder()
-update := ub.
-    Set("status", "active").
-    Inc("views", 1).
-    Push("tags", "featured").
-    CurrentDate("updated_at").
-    Build()
-
-result, err := client.UpdateOne(ctx, "db", "posts", filter, update)
-```
-
-### Update Builder Methods
-
-- `Set(key, value)` - Set field value
-- `SetMultiple(map)` - Set multiple fields
-- `Unset(...keys)` - Remove fields
-- `Inc(key, value)` - Increment value
-- `Mul(key, value)` - Multiply value
-- `Min(key, value)` - Update if less than current
-- `Max(key, value)` - Update if greater than current
-- `Push(key, value)` - Append to array
-- `Pull(key, value)` - Remove from array
-- `AddToSet(key, value)` - Add to array if not exists
-- `Pop(key, first)` - Remove first/last array element
-- `CurrentDate(key)` - Set to current date
-- `Rename(old, new)` - Rename field
-
-## Aggregation Pipeline
-
-Build aggregation pipelines with a fluent interface:
-
-```go
-ab := mongo.NewAggregationBuilder()
-pipeline := ab.
-    Match(bson.M{"status": "active"}).
-    Group("$category", bson.M{
-        "count": bson.M{"$sum": 1},
-        "avgPrice": bson.M{"$avg": "$price"},
-    }).
-    Sort(bson.M{"count": -1}).
-    Limit(10).
-    Build()
-
-var results []bson.M
-err := client.Aggregate(ctx, "db", "products", pipeline, &results)
-```
-
-### Aggregation Methods
-
-- `Match(filter)` - Filter documents
-- `Group(id, fields)` - Group documents
-- `Sort(sort)` - Sort documents
-- `Limit(n)` - Limit results
-- `Skip(n)` - Skip documents
-- `Project(projection)` - Select fields
-- `Unwind(path)` - Deconstruct arrays
-- `Lookup(from, localField, foreignField, as)` - Join collections
-- `AddStage(stage)` - Add custom stage
-
-## Advanced Operations
-
-### Distinct Values
-
-```go
-categories, err := client.Distinct(ctx, "db", "products", "category", bson.M{})
-```
-
-### FindOneAndUpdate
-
-```go
-var updated User
-err := client.FindOneAndUpdate(ctx, "db", "users", filter, update, &updated)
-```
-
-### FindOneAndReplace
-
-```go
-var replaced User
-err := client.FindOneAndReplace(ctx, "db", "users", filter, newDoc, &replaced)
-```
-
-### FindOneAndDelete
-
-```go
-var deleted User
-err := client.FindOneAndDelete(ctx, "db", "users", filter, &deleted)
-```
-
-### Bulk Write
-
-```go
-models := []mongo.WriteModel{
-    mongo.NewInsertOneModel().SetDocument(doc1),
-    mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update),
-    mongo.NewDeleteOneModel().SetFilter(filter),
-}
-result, err := client.BulkWrite(ctx, "db", "collection", models)
-```
-
-## Index Management
-
-```go
-// Create index
-indexName, err := client.CreateIndex(ctx, "db", "users",
-    bson.D{{Key: "email", Value: 1}})
-
-// Drop index
-err := client.DropIndex(ctx, "db", "users", "email_1")
-
-// List indexes
-indexes, err := client.ListIndexes(ctx, "db", "users")
-```
-
-## Transaction Support
-
-```go
-// Using session
-err := client.UseSession(ctx, func(sessCtx mongo.SessionContext) error {
-    err := sessCtx.StartTransaction()
-    if err != nil {
-        return err
-    }
-
-    // Perform operations
-    _, err = client.InsertOne(sessCtx, "db", "users", user1)
-    if err != nil {
-        sessCtx.AbortTransaction(sessCtx)
-        return err
-    }
-
-    _, err = client.InsertOne(sessCtx, "db", "users", user2)
-    if err != nil {
-        sessCtx.AbortTransaction(sessCtx)
-        return err
-    }
-
-    return sessCtx.CommitTransaction(sessCtx)
-})
-```
-
-## Helper Functions
-
-```go
-// ObjectID helpers
-id := mongo.NewObjectID()
-oid, err := mongo.ToObjectID("507f1f77bcf86cd799439011")
-oids, err := mongo.ToObjectIDs([]string{"id1", "id2"})
-valid := mongo.IsValidObjectID("507f1f77bcf86cd799439011")
-
-// BSON helpers
-doc := mongo.ToBSON(map[string]interface{}{"key": "value"})
-docs := mongo.ToBSONArray([]map[string]interface{}{...})
-merged := mongo.MergeBSON(doc1, doc2, doc3)
-```
-
-## Error Handling
-
-```go
-_, err := client.FindOne(ctx, "db", "users", filter, &user)
-if err != nil {
-    if errors.Is(err, mongo.ErrDocumentNotFound()) {
-        // Handle not found
-    } else if errors.Is(err, mongo.ErrClientClosed()) {
-        // Handle closed client
-    } else {
-        // Handle other errors
-    }
-}
-```
-
-## Connection Management
-
-```go
-// Check connection status
-if !client.IsClosed() {
-    if client.IsConnected(ctx) {
-        // Client is connected
-    }
+type User struct {
+    ID    primitive.ObjectID `bson:"_id,omitempty"`
+    Name  string             `bson:"name"`
+    Email string             `bson:"email"`
 }
 
-// Get configuration
-config := client.GetConfig()
+// Create repository
+userRepo := mongo_kit.NewRepository[User](client, "users")
 
-// List databases
-dbs, err := client.ListDatabases(ctx, bson.M{})
+// Type-safe operations
+user := User{Name: "Alice", Email: "alice@example.com"}
+id, _ := userRepo.Create(ctx, user)
 
-// List collections
-collections, err := client.ListCollections(ctx, "mydb")
+// Query with builder
+qb := mongo_kit.NewQueryBuilder().
+    Equals("status", "active").
+    GreaterThan("age", 18).
+    Sort("name", true)
 
-// Close connection
-err := client.Close(context.Background())
+users, _ := userRepo.FindWithBuilder(ctx, qb)
 ```
 
-## Examples
-
-See the [examples](examples/) directory for complete working examples:
-
-- **[examples/basic/](examples/basic/)** - Simple CRUD operations with MongoDB
-
-## Design Philosophy
-
-This library is designed for applications that use a **single database**. The database is configured once during client initialization, keeping your code clean and simple.
-
-```go
-// Configure database once
-client, _ := mongo.New(
-    mongo.DefaultConfig(),
-    mongo.WithDatabase("myapp"),  // ← Set once
-)
-
-// Use everywhere without repeating database name
-client.InsertOne(ctx, "users", user)       // Clean ✓
-client.Find(ctx, "posts", filter, &posts)   // Simple ✓
-```
-
-This design choice makes the API:
-- **Cleaner** - Less repetition
-- **Simpler** - Fewer parameters
-- **Safer** - Can't accidentally use wrong database
-- **Perfect for** - Most web applications, APIs, microservices
+See [docs/repository.md](docs/repository.md) for complete examples.
 
 ## Best Practices
 
-1. **Use Context**: Always pass context with appropriate timeouts
-2. **Defer Close**: Always defer `client.Close()` after creating the client
-3. **Error Handling**: Check and handle errors appropriately
-4. **Connection Pooling**: Reuse the same client instance across your application
-5. **Indexes**: Create indexes for frequently queried fields
-6. **Projections**: Use projections to fetch only required fields
-7. **Bulk Operations**: Use bulk operations for multiple writes
+- **Reuse client** - Create once, use across your application
+- **Use contexts** - Always pass context with appropriate timeouts
+- **Close connections** - Defer `client.Close()` after creation
+- **Repository pattern** - Use for type safety and cleaner code
+- **Query builders** - Use for complex queries instead of raw bson.M
+- **Handle errors** - Check for `mongo.ErrNoDocuments` and operation errors
+
+## Project Structure
+
+```
+mongo-kit-go/
+├── client.go          # Core client and connection management
+├── config.go          # Configuration and options
+├── operations.go      # Database operations (CRUD, indexes, etc.)
+├── query.go           # Query, Update, and Aggregation builders
+├── repository.go      # Generic repository pattern
+├── context.go         # Context helpers
+├── errors.go          # Error types
+└── docs/
+    ├── operations.md  # Operations guide
+    ├── query.md       # Builders guide
+    ├── repository.md  # Repository guide
+    └── context.md     # Context guide
+```
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
@@ -472,4 +162,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues, questions, or contributions, please open an issue on GitHub.
+For issues, questions, or feature requests, please [open an issue](https://github.com/edaniel30/mongo-kit-go/issues) on GitHub.
