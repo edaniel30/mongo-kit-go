@@ -58,6 +58,9 @@ linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
 
+  errorlint:
+    errorf-multi: false
+
 issues:
   exclude-rules:
     - path: _test\.go
