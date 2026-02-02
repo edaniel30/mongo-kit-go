@@ -20,8 +20,8 @@ type User struct {
     Age   int                `bson:"age"`
 }
 
-client, _ := mongo_kit.New(mongo_kit.DefaultConfig())
-userRepo := mongo_kit.NewRepository[User](client, "users")
+client, _ := mongokit.New(mongokit.DefaultConfig())
+userRepo := mongokit.NewRepository[User](client, "users")
 ```
 
 ## CRUD Operations
@@ -180,7 +180,7 @@ The Repository works seamlessly with QueryBuilder for complex queries.
 
 Build complex queries with fluent interface:
 ```go
-qb := mongo_kit.NewQueryBuilder().
+qb := mongokit.NewQueryBuilder().
     Equals("status", "active").
     GreaterThan("age", 18).
     Sort("name", true).
@@ -194,7 +194,7 @@ err := userRepo.FindWithBuilder(ctx, qb, &users)
 
 Find single document with query builder:
 ```go
-qb := mongo_kit.NewQueryBuilder().
+qb := mongokit.NewQueryBuilder().
     Equals("email", "john@example.com").
     Project(bson.M{"password": 0})  // Exclude password
 
@@ -206,7 +206,7 @@ err := userRepo.FindOneWithBuilder(ctx, qb, &user)
 
 Count with complex filters:
 ```go
-qb := mongo_kit.NewQueryBuilder().
+qb := mongokit.NewQueryBuilder().
     Equals("status", "active").
     GreaterThanOrEqual("age", 18).
     In("country", "US", "CA", "UK")
@@ -218,7 +218,7 @@ count, err := userRepo.CountWithBuilder(ctx, qb)
 
 Check existence with complex conditions:
 ```go
-qb := mongo_kit.NewQueryBuilder().
+qb := mongokit.NewQueryBuilder().
     Equals("email", "test@example.com").
     Equals("verified", true)
 
@@ -252,7 +252,7 @@ err := userRepo.Aggregate(ctx, pipeline, &stats)
 
 Using AggregationBuilder:
 ```go
-ab := mongo_kit.NewAggregationBuilder().
+ab := mongokit.NewAggregationBuilder().
     Match(bson.M{"status": "active"}).
     Group("$role", bson.M{"count": bson.M{"$sum": 1}}).
     Sort(bson.M{"count": -1})
@@ -300,12 +300,12 @@ err := userRepo.Drop(ctx)
 
 ```go
 type UserService struct {
-    repo *mongo_kit.Repository[User]
+    repo *mongokit.Repository[User]
 }
 
-func NewUserService(client *mongo_kit.Client) *UserService {
+func NewUserService(client *mongokit.Client) *UserService {
     return &UserService{
-        repo: mongo_kit.NewRepository[User](client, "users"),
+        repo: mongokit.NewRepository[User](client, "users"),
     }
 }
 
@@ -337,7 +337,7 @@ func (s *UserService) Register(ctx context.Context, email, name string) (*User, 
 }
 
 func (s *UserService) GetActiveUsers(ctx context.Context, limit int) ([]User, error) {
-    qb := mongo_kit.NewQueryBuilder().
+    qb := mongokit.NewQueryBuilder().
         Equals("status", "active").
         Sort("created_at", false).
         Limit(int64(limit))
@@ -358,7 +358,7 @@ func (s *UserService) UpdateLastLogin(ctx context.Context, userID any) error {
 
 ```go
 // Create with validation
-func CreateUser(ctx context.Context, repo *mongo_kit.Repository[User], user User) error {
+func CreateUser(ctx context.Context, repo *mongokit.Repository[User], user User) error {
     if user.Email == "" {
         return errors.New("email required")
     }
@@ -376,7 +376,7 @@ func CreateUser(ctx context.Context, repo *mongo_kit.Repository[User], user User
 }
 
 // Read with not found handling
-func GetUser(ctx context.Context, repo *mongo_kit.Repository[User], id any) (*User, error) {
+func GetUser(ctx context.Context, repo *mongokit.Repository[User], id any) (*User, error) {
     var user User
     err := repo.FindByID(ctx, id, &user)
     if err == mongo.ErrNoDocuments {
@@ -386,7 +386,7 @@ func GetUser(ctx context.Context, repo *mongo_kit.Repository[User], id any) (*Us
 }
 
 // Update with result check
-func ActivateUser(ctx context.Context, repo *mongo_kit.Repository[User], id any) error {
+func ActivateUser(ctx context.Context, repo *mongokit.Repository[User], id any) error {
     update := bson.M{"$set": bson.M{"status": "active", "activated_at": time.Now()}}
     result, err := repo.UpdateByID(ctx, id, update)
     if err != nil {
@@ -399,7 +399,7 @@ func ActivateUser(ctx context.Context, repo *mongo_kit.Repository[User], id any)
 }
 
 // Delete with confirmation
-func DeleteInactiveUsers(ctx context.Context, repo *mongo_kit.Repository[User]) (int64, error) {
+func DeleteInactiveUsers(ctx context.Context, repo *mongokit.Repository[User]) (int64, error) {
     cutoff := time.Now().Add(-90 * 24 * time.Hour)
     filter := bson.M{
         "status": "inactive",
@@ -417,8 +417,8 @@ func DeleteInactiveUsers(ctx context.Context, repo *mongo_kit.Repository[User]) 
 ### Pagination
 
 ```go
-func GetUsersPage(ctx context.Context, repo *mongo_kit.Repository[User], page, pageSize int) ([]User, error) {
-    qb := mongo_kit.NewQueryBuilder().
+func GetUsersPage(ctx context.Context, repo *mongokit.Repository[User], page, pageSize int) ([]User, error) {
+    qb := mongokit.NewQueryBuilder().
         Equals("status", "active").
         Sort("created_at", false).
         Skip(int64((page - 1) * pageSize)).
@@ -433,7 +433,7 @@ func GetUsersPage(ctx context.Context, repo *mongo_kit.Repository[User], page, p
 ### Batch Operations
 
 ```go
-func ImportUsers(ctx context.Context, repo *mongo_kit.Repository[User], users []User) error {
+func ImportUsers(ctx context.Context, repo *mongokit.Repository[User], users []User) error {
     // Batch insert
     ids, err := repo.CreateMany(ctx, users)
     if err != nil {
@@ -444,7 +444,7 @@ func ImportUsers(ctx context.Context, repo *mongo_kit.Repository[User], users []
     return nil
 }
 
-func BulkUpdateStatus(ctx context.Context, repo *mongo_kit.Repository[User], userIDs []string, status string) error {
+func BulkUpdateStatus(ctx context.Context, repo *mongokit.Repository[User], userIDs []string, status string) error {
     filter := bson.M{"_id": bson.M{"$in": userIDs}}
     update := bson.M{"$set": bson.M{"status": status, "updated_at": time.Now()}}
 
@@ -464,22 +464,22 @@ Organize your data layer with multiple repositories:
 
 ```go
 type DataLayer struct {
-    Users    *mongo_kit.Repository[User]
-    Orders   *mongo_kit.Repository[Order]
-    Products *mongo_kit.Repository[Product]
+    Users    *mongokit.Repository[User]
+    Orders   *mongokit.Repository[Order]
+    Products *mongokit.Repository[Product]
 }
 
-func NewDataLayer(client *mongo_kit.Client) *DataLayer {
+func NewDataLayer(client *mongokit.Client) *DataLayer {
     return &DataLayer{
-        Users:    mongo_kit.NewRepository[User](client, "users"),
-        Orders:   mongo_kit.NewRepository[Order](client, "orders"),
-        Products: mongo_kit.NewRepository[Product](client, "products"),
+        Users:    mongokit.NewRepository[User](client, "users"),
+        Orders:   mongokit.NewRepository[Order](client, "orders"),
+        Products: mongokit.NewRepository[Product](client, "products"),
     }
 }
 
 // Use in application
 func main() {
-    client, _ := mongo_kit.New(mongo_kit.DefaultConfig())
+    client, _ := mongokit.New(mongokit.DefaultConfig())
     defer client.Close(context.Background())
 
     data := NewDataLayer(client)

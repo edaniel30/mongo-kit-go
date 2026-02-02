@@ -31,7 +31,7 @@ func SetupMongoContainer(t *testing.T) *MongoContainer {
 	}
 
 	// Add directConnection for replica set to work from host
-	uri = uri + "&directConnection=true"
+	uri += "&directConnection=true"
 
 	return &MongoContainer{
 		MongoDBContainer: container,

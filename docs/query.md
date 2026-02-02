@@ -1,493 +1,503 @@
 # Query Builders Guide
 
-This document covers the three fluent builder interfaces for constructing MongoDB queries, updates, and aggregations.
+This document covers the three fluent builder interfaces for constructing MongoDB queries, updates, and aggregations with the Repository pattern.
 
 ## QueryBuilder
 
-Fluent interface for building MongoDB find queries with filters, sorting, and options.
+Build complex find queries with filters, sorting, and options using a fluent interface.
 
-### Basic Usage
+### Basic Usage with Repository
 
 ```go
-qb := mongo_kit.NewQueryBuilder().
+// Simple query
+qb := mongokit.NewQueryBuilder().
     Equals("status", "active").
     GreaterThan("age", 18).
-    Limit(10).
-    Sort("name", true)
+    Sort("name", true).
+    Limit(10)
 
-filter, opts := qb.Build()
-var users []User
-err := client.Find(ctx, "users", filter, &users, opts)
+users, err := userRepo.FindWithBuilder(ctx, qb)
 ```
 
 ### Comparison Operators
 
-**Equals** - Equality filter (alias for Filter)
+**Equals** - Equality filter
 ```go
 qb.Equals("status", "active")
-// { status: "active" }
+// Generates: { status: "active" }
 ```
 
 **NotEquals** - Not equal
 ```go
 qb.NotEquals("status", "banned")
-// { status: { $ne: "banned" } }
+// Generates: { status: { $ne: "banned" } }
 ```
 
-**GreaterThan** - Greater than
+**GreaterThan / GreaterThanOrEqual**
 ```go
 qb.GreaterThan("age", 18)
-// { age: { $gt: 18 } }
+qb.GreaterThanOrEqual("age", 18)
+// Generates: { age: { $gt: 18 } } or { age: { $gte: 18 } }
 ```
 
-**GreaterThanOrEqual** - Greater than or equal
-```go
-qb.GreaterThanOrEqual("score", 80)
-// { score: { $gte: 80 } }
-```
-
-**LessThan** - Less than
+**LessThan / LessThanOrEqual**
 ```go
 qb.LessThan("price", 100)
-// { price: { $lt: 100 } }
-```
-
-**LessThanOrEqual** - Less than or equal
-```go
-qb.LessThanOrEqual("stock", 10)
-// { stock: { $lte: 10 } }
+qb.LessThanOrEqual("price", 100)
+// Generates: { price: { $lt: 100 } } or { price: { $lte: 100 } }
 ```
 
 ### Array Operators
 
 **In** - Value in array
 ```go
-qb.In("status", "active", "pending", "processing")
-// { status: { $in: ["active", "pending", "processing"] } }
+qb.In("role", "admin", "moderator", "editor")
+// Generates: { role: { $in: ["admin", "moderator", "editor"] } }
 ```
 
 **NotIn** - Value not in array
 ```go
-qb.NotIn("role", "admin", "superuser")
-// { role: { $nin: ["admin", "superuser"] } }
+qb.NotIn("status", "banned", "suspended")
+// Generates: { status: { $nin: ["banned", "suspended"] } }
 ```
 
-### Other Operators
+### Field Existence
 
 **Exists** - Check if field exists
 ```go
-qb.Exists("email", true)  // has email field
-qb.Exists("deleted_at", false)  // doesn't have deleted_at
+qb.Exists("email", true)  // Field must exist
+qb.Exists("deleted_at", false)  // Field must not exist
+// Generates: { email: { $exists: true } }
 ```
 
-**Regex** - Pattern matching
-```go
-qb.Regex("email", ".*@example\\.com", "i")
-// Case-insensitive email domain match
-```
+### Pattern Matching
 
-**Where** - Raw MongoDB expression
+**Regex** - Regular expression matching
 ```go
-// $expr condition
-qb.Where(bson.M{"$expr": bson.M{"$gt": []any{"$spent", "$budget"}}})
-
-// $text search
-qb.Where(bson.M{"$text": bson.M{"$search": "mongodb"}})
+qb.Regex("name", "^John", "i")  // Case-insensitive, starts with "John"
+// Generates: { name: { $regex: "^John", $options: "i" } }
 ```
 
 ### Logical Operators
 
-**And** - All conditions must match
+**And** - Combine conditions with AND
 ```go
-qb.And(
-    bson.D{{"age", bson.M{"$gte": 18}}},
-    bson.D{{"verified", true}},
-)
+condition1 := bson.D{{Key: "age", Value: bson.M{"$gte": 18}}}
+condition2 := bson.D{{Key: "age", Value: bson.M{"$lte": 65}}}
+
+qb := mongokit.NewQueryBuilder().
+    And(condition1, condition2)
+// Generates: { $and: [...] }
 ```
 
-**Or** - Any condition can match
+**Or** - Combine conditions with OR
 ```go
-qb.Or(
-    bson.D{{"status", "premium"}},
-    bson.D{{"credits", bson.M{"$gt": 100}}},
-)
+condition1 := bson.D{{Key: "role", Value: "admin"}}
+condition2 := bson.D{{Key: "role", Value: "moderator"}}
+
+qb := mongokit.NewQueryBuilder().
+    Or(condition1, condition2)
+// Generates: { $or: [...] }
 ```
 
-**Nor** - None of the conditions should match
+**Nor** - Combine conditions with NOR
 ```go
-qb.Nor(
-    bson.D{{"banned", true}},
-    bson.D{{"deleted", true}},
-)
+qb.Nor(condition1, condition2)
+// Generates: { $nor: [...] }
 ```
 
-### Query Composition
+### Combining Multiple QueryBuilders
 
-**AndConditions** - Combine multiple QueryBuilders with AND logic
+**AndConditions** - Combine multiple builders with AND
 ```go
-ageFilter := mongo_kit.NewQueryBuilder().GreaterThan("age", 18)
-statusFilter := mongo_kit.NewQueryBuilder().Equals("status", "active")
-emailFilter := mongo_kit.NewQueryBuilder().Exists("email", true)
+qb1 := mongokit.NewQueryBuilder().Equals("active", true)
+qb2 := mongokit.NewQueryBuilder().GreaterThan("age", 18)
 
-qb := mongo_kit.NewQueryBuilder().AndConditions(ageFilter, statusFilter, emailFilter)
-// All conditions must match
+qb := mongokit.NewQueryBuilder().
+    AndConditions(qb1, qb2)
+
+users, _ := userRepo.FindWithBuilder(ctx, qb)
 ```
 
-**OrConditions** - Combine multiple QueryBuilders with OR logic
+**OrConditions** - Combine multiple builders with OR
 ```go
-underageFilter := mongo_kit.NewQueryBuilder().LessThan("age", 18)
-seniorFilter := mongo_kit.NewQueryBuilder().GreaterThan("age", 65)
+qb1 := mongokit.NewQueryBuilder().Equals("role", "admin")
+qb2 := mongokit.NewQueryBuilder().Equals("role", "moderator")
 
-qb := mongo_kit.NewQueryBuilder().OrConditions(underageFilter, seniorFilter)
-// Matches age < 18 OR age > 65
-```
+qb := mongokit.NewQueryBuilder().
+    OrConditions(qb1, qb2)
 
-**NorConditions** - Combine multiple QueryBuilders with NOR logic
-```go
-bannedFilter := mongo_kit.NewQueryBuilder().Equals("status", "banned")
-deletedFilter := mongo_kit.NewQueryBuilder().Equals("deleted", true)
-
-qb := mongo_kit.NewQueryBuilder().NorConditions(bannedFilter, deletedFilter)
-// Matches neither banned nor deleted
+users, _ := userRepo.FindWithBuilder(ctx, qb)
 ```
 
 ### Query Options
 
-**Limit** - Maximum documents to return
+**Limit** - Limit number of results
 ```go
 qb.Limit(10)
 ```
 
-**Skip** - Number of documents to skip
+**Skip** - Skip number of documents (pagination)
 ```go
-qb.Skip(20)  // Skip first 20, useful for pagination
+qb.Skip(20).Limit(10)  // Page 3, 10 per page
 ```
 
-**Sort** - Sort by field (can be called multiple times)
+**Sort** - Sort results
 ```go
-qb.Sort("name", true)     // Ascending
-qb.Sort("age", false)     // Descending
-// Multiple sorts: first by name ascending, then by age descending
+qb.Sort("name", true)   // Ascending
+qb.Sort("age", false)   // Descending
 ```
 
-**SortBy** - Custom sort specification
+**SortBy** - Custom sort (replaces previous sorts)
 ```go
-qb.SortBy(bson.D{{"priority", -1}, {"created_at", 1}})
-// Replaces any previous sorts
+qb.SortBy(bson.D{
+    {Key: "priority", Value: -1},
+    {Key: "created_at", Value: 1},
+})
 ```
 
 **Project** - Select specific fields
 ```go
-qb.Project(bson.M{"name": 1, "email": 1, "_id": 0})
-// Only return name and email, exclude _id
+qb.Project(bson.M{
+    "name": 1,
+    "email": 1,
+    "_id": 0,
+})
 ```
 
-### Building the Query
+### Advanced: Raw Expressions
 
-**GetFilter** - Get only the filter (no options)
+**Where** - Add raw MongoDB expression
 ```go
-qb := mongo_kit.NewQueryBuilder().Equals("status", "active")
-filter := qb.GetFilter()
-// Use filter with other operations like CountDocuments
-count, err := client.CountDocuments(ctx, "users", filter)
-```
+qb.Where(bson.M{
+    "custom_field": bson.M{"$exists": true},
+})
 
-**Build** - Get filter and options
-```go
-filter, opts := qb.Build()
-err := client.Find(ctx, "users", filter, &users, opts)
+// Also supports bson.D and bson.E
+qb.Where(bson.D{{Key: "status", Value: "active"}})
 ```
 
 ### Complete Example
 
 ```go
-qb := mongo_kit.NewQueryBuilder().
-    Equals("type", "customer").
+qb := mongokit.NewQueryBuilder().
+    Equals("active", true).
     GreaterThanOrEqual("age", 18).
-    In("country", "US", "CA", "UK").
+    LessThan("age", 65).
+    In("role", "user", "premium").
     Exists("email", true).
-    Sort("created_at", false).
-    Limit(50).
-    Skip(100)
+    Regex("name", "^[A-Z]", "").  // Starts with capital letter
+    Sort("created_at", false).     // Newest first
+    Skip(0).
+    Limit(20)
 
-filter, opts := qb.Build()
-var customers []Customer
-err := client.Find(ctx, "users", filter, &customers, opts)
+users, err := userRepo.FindWithBuilder(ctx, qb)
 ```
+
+See [examples/query_builders/](../examples/query_builders/) for complete working examples.
+
+---
 
 ## UpdateBuilder
 
-Fluent interface for building MongoDB update operations.
+Build complex update operations using a fluent interface.
 
 ### Basic Usage
 
 ```go
-ub := mongo_kit.NewUpdateBuilder().
+ub := mongokit.NewUpdateBuilder().
     Set("status", "active").
-    Inc("login_count", 1).
+    Inc("views", 1).
     CurrentDate("updated_at")
 
-update := ub.Build()
-result, err := client.UpdateOne(ctx, "users", filter, update)
+result, err := userRepo.UpdateByID(ctx, id, ub.Build())
 ```
 
 ### Field Update Operators
 
-**Set** - Set field value
+**Set** - Set field values
 ```go
-ub.Set("status", "active").
-   Set("verified", true)
-// { $set: { status: "active", verified: true } }
+ub.Set("name", "Alice").
+   Set("email", "alice@example.com")
+// Generates: { $set: { name: "Alice", email: "alice@example.com" } }
 ```
 
 **Unset** - Remove fields
 ```go
-ub.Unset("temp_token", "session_id")
-// { $unset: { temp_token: "", session_id: "" } }
+ub.Unset("temp_field", "old_data")
+// Generates: { $unset: { temp_field: "", old_data: "" } }
 ```
 
-**Inc** - Increment numeric field
+### Numeric Operators
+
+**Inc** - Increment value
 ```go
 ub.Inc("views", 1).
-   Inc("credits", -5)  // Can decrement with negative value
-// { $inc: { views: 1, credits: -5 } }
+   Inc("likes", 5)
+// Generates: { $inc: { views: 1, likes: 5 } }
 ```
 
-**Mul** - Multiply numeric field
+**Mul** - Multiply value
 ```go
 ub.Mul("price", 1.1)  // Increase price by 10%
-// { $mul: { price: 1.1 } }
+// Generates: { $mul: { price: 1.1 } }
 ```
 
-**Min** - Update only if new value is less
+**Min** - Update if new value is less
 ```go
-ub.Min("lowest_score", 85)
-// Updates only if 85 < current value
+ub.Min("lowest_price", 49.99)
+// Only updates if 49.99 < current value
+// Generates: { $min: { lowest_price: 49.99 } }
 ```
 
-**Max** - Update only if new value is greater
+**Max** - Update if new value is greater
 ```go
-ub.Max("highest_score", 95)
-// Updates only if 95 > current value
+ub.Max("highest_score", 100)
+// Only updates if 100 > current value
+// Generates: { $max: { highest_score: 100 } }
 ```
 
-**Rename** - Rename field
+### Array Operators
+
+**Push** - Add item to array
 ```go
-ub.Rename("old_name", "new_name")
-// { $rename: { old_name: "new_name" } }
+ub.Push("tags", "featured").
+   Push("tags", "trending")
+// Generates: { $push: { tags: { $each: ["featured", "trending"] } } }
 ```
 
-**CurrentDate** - Set to current date
-```go
-ub.CurrentDate("updated_at")
-// { $currentDate: { updated_at: true } }
-```
-
-### Array Update Operators
-
-**Push** - Append to array
-```go
-ub.Push("tags", "mongodb")
-// { $push: { tags: "mongodb" } }
-```
-
-**Pull** - Remove all matching values
+**Pull** - Remove matching items from array
 ```go
 ub.Pull("tags", "deprecated")
-// { $pull: { tags: "deprecated" } }
+// Generates: { $pull: { tags: "deprecated" } }
 ```
 
-**AddToSet** - Add to array if not present
+**AddToSet** - Add item only if not present (no duplicates)
 ```go
-ub.AddToSet("interests", "coding")
-// { $addToSet: { interests: "coding" } }
+ub.AddToSet("categories", "electronics")
+// Generates: { $addToSet: { categories: "electronics" } }
 ```
 
 **Pop** - Remove first or last element
 ```go
-ub.Pop("items", true)   // Remove first element
-ub.Pop("items", false)  // Remove last element
+ub.Pop("history", true)  // Remove first
+ub.Pop("history", false) // Remove last
+// Generates: { $pop: { history: -1 } } or { $pop: { history: 1 } }
 ```
 
-### Complete Example
+### Date Operators
+
+**CurrentDate** - Set to current date/time
+```go
+ub.CurrentDate("updated_at").
+   CurrentDate("last_modified")
+// Generates: { $currentDate: { updated_at: true, last_modified: true } }
+```
+
+### Field Rename
+
+**Rename** - Rename a field
+```go
+ub.Rename("old_name", "new_name")
+// Generates: { $rename: { old_name: "new_name" } }
+```
+
+### Complex Update Example
 
 ```go
-ub := mongo_kit.NewUpdateBuilder().
-    Set("status", "premium").
-    Set("upgraded_at", time.Now()).
-    Inc("subscription_months", 12).
-    Push("features", "advanced_analytics").
-    CurrentDate("updated_at")
+ub := mongokit.NewUpdateBuilder().
+    Set("status", "published").
+    Set("author", "John Doe").
+    Inc("views", 1).
+    Push("tags", "featured").
+    AddToSet("categories", "tech").
+    Pull("flags", "draft").
+    CurrentDate("updated_at").
+    CurrentDate("published_at")
 
-update := ub.Build()
-result, err := client.UpdateOne(ctx, "users", bson.M{"_id": userID}, update)
+result, err := articleRepo.UpdateByID(ctx, articleID, ub.Build())
+fmt.Printf("Modified %d document(s)\n", result.ModifiedCount)
 ```
+
+### Update Many Example
+
+```go
+ub := mongokit.NewUpdateBuilder().
+    Set("verified", true).
+    Inc("verification_count", 1).
+    CurrentDate("verified_at")
+
+filter := mongokit.NewQueryBuilder().
+    Equals("email_confirmed", true).
+    Equals("verified", false).
+    GetFilter()
+
+result, err := userRepo.UpdateMany(ctx, filter, ub.Build())
+```
+
+See [examples/update_builders/](../examples/update_builders/) for complete working examples.
+
+---
 
 ## AggregationBuilder
 
-Fluent interface for building MongoDB aggregation pipelines.
+Build aggregation pipelines using a fluent interface.
 
 ### Basic Usage
 
 ```go
-ab := mongo_kit.NewAggregationBuilder().
+ab := mongokit.NewAggregationBuilder().
     Match(bson.M{"status": "active"}).
-    Group("$country", bson.M{"count": bson.M{"$sum": 1}}).
-    Sort(bson.M{"count": -1}).
-    Limit(10)
+    Group("$category", bson.M{
+        "count": bson.M{"$sum": 1},
+        "total": bson.M{"$sum": "$amount"},
+    }).
+    Sort(bson.D{{Key: "total", Value: -1}})
 
-pipeline := ab.Build()
-var results []bson.M
-err := client.Aggregate(ctx, "users", pipeline, &results)
+// Use primitive.M for aggregation results
+aggRepo := mongokit.NewRepository[primitive.M](client, "orders")
+results, err := aggRepo.Aggregate(ctx, ab.Build())
 ```
 
 ### Pipeline Stages
 
 **Match** - Filter documents
 ```go
-ab.Match(bson.M{"age": bson.M{"$gte": 18}})
-// { $match: { age: { $gte: 18 } } }
+ab.Match(bson.M{
+    "status": "completed",
+    "amount": bson.M{"$gte": 100},
+})
 ```
 
 **Group** - Group and aggregate
 ```go
-ab.Group("$country", bson.M{
-    "total": bson.M{"$sum": 1},
-    "avgAge": bson.M{"$avg": "$age"},
+ab.Group("$customer_id", bson.M{
+    "total_orders": bson.M{"$sum": 1},
+    "total_spent": bson.M{"$sum": "$amount"},
+    "avg_amount": bson.M{"$avg": "$amount"},
 })
-// Groups by country, counts total and calculates average age
 ```
 
 **Sort** - Sort documents
 ```go
-ab.Sort(bson.M{"count": -1, "name": 1})
-// Sort by count descending, then name ascending
+ab.Sort(bson.D{
+    {Key: "total", Value: -1},  // Descending
+    {Key: "name", Value: 1},    // Ascending
+})
 ```
 
-**Limit** - Limit results
+**Limit** - Limit number of results
 ```go
 ab.Limit(10)
 ```
 
-**Skip** - Skip documents
+**Skip** - Skip documents (pagination)
 ```go
 ab.Skip(20)
 ```
 
-**Project** - Select/reshape fields
+**Project** - Select/transform fields
 ```go
 ab.Project(bson.M{
     "name": 1,
-    "email": 1,
-    "fullName": bson.M{"$concat": []any{"$firstName", " ", "$lastName"}},
+    "total": 1,
+    "discount": bson.M{"$multiply": []any{"$total", 0.1}},
 })
 ```
 
-**Unwind** - Deconstruct array
+**Unwind** - Deconstruct array field
 ```go
-ab.Unwind("$tags")
-// Creates one document per array element
+ab.Unwind("$items")  // Each array element becomes a document
 ```
 
-**Lookup** - Join collections
+**Lookup** - Join with another collection
 ```go
-ab.Lookup("orders", "user_id", "_id", "user_orders")
-// Left outer join: users -> orders
+ab.Lookup(
+    "products",     // from collection
+    "product_id",   // local field
+    "_id",          // foreign field
+    "product_info", // as field name
+)
 ```
 
-**AddStage** - Custom stage
+**AddStage** - Add custom stage
 ```go
-ab.AddStage(bson.D{{
-    Key: "$facet",
-    Value: bson.M{
-        "byCountry": []bson.M{{"$group": bson.M{"_id": "$country", "count": bson.M{"$sum": 1}}}},
-        "byAge": []bson.M{{"$group": bson.M{"_id": "$age", "count": bson.M{"$sum": 1}}}},
-    },
-}})
+ab.AddStage(bson.D{{Key: "$count", Value: "total"}})
 ```
 
-### Complete Examples
+### Complete Aggregation Example
 
-**User Statistics by Country**
 ```go
-ab := mongo_kit.NewAggregationBuilder().
-    Match(bson.M{"status": "active"}).
-    Group("$country", bson.M{
-        "totalUsers": bson.M{"$sum": 1},
-        "avgAge": bson.M{"$avg": "$age"},
-        "totalRevenue": bson.M{"$sum": "$lifetime_value"},
+ab := mongokit.NewAggregationBuilder().
+    // Filter completed orders
+    Match(bson.M{"status": "completed"}).
+
+    // Group by customer
+    Group("$customer_id", bson.M{
+        "total_orders": bson.M{"$sum": 1},
+        "total_spent": bson.M{"$sum": "$total"},
+        "avg_order": bson.M{"$avg": "$total"},
     }).
-    Sort(bson.M{"totalRevenue": -1}).
-    Limit(20)
 
-pipeline := ab.Build()
-var stats []CountryStats
-err := client.Aggregate(ctx, "users", pipeline, &stats)
-```
+    // Filter customers with >2 orders
+    Match(bson.M{"total_orders": bson.M{"$gt": 2}}).
 
-**Users with Order Details**
-```go
-ab := mongo_kit.NewAggregationBuilder().
-    Match(bson.M{"status": "active"}).
-    Lookup("orders", "_id", "user_id", "orders").
+    // Sort by total spent
+    Sort(bson.D{{Key: "total_spent", Value: -1}}).
+
+    // Get top 10
+    Limit(10).
+
+    // Select fields
     Project(bson.M{
-        "name": 1,
-        "email": 1,
-        "orderCount": bson.M{"$size": "$orders"},
-        "totalSpent": bson.M{"$sum": "$orders.total"},
+        "customer_id": "$_id",
+        "total_spent": 1,
+        "total_orders": 1,
+        "avg_order": bson.M{"$round": []any{"$avg_order", 2}},
+        "_id": 0,
+    })
+
+aggRepo := mongokit.NewRepository[primitive.M](client, "orders")
+results, err := aggRepo.Aggregate(ctx, ab.Build())
+
+for _, result := range results {
+    fmt.Printf("Customer %s: $%.2f (%d orders)\n",
+        result["customer_id"],
+        result["total_spent"],
+        result["total_orders"])
+}
+```
+
+### Date-Based Aggregation
+
+```go
+ab := mongokit.NewAggregationBuilder().
+    Match(bson.M{"status": "completed"}).
+    Group(bson.M{
+        "year": bson.M{"$year": "$order_date"},
+        "month": bson.M{"$month": "$order_date"},
+    }, bson.M{
+        "count": bson.M{"$sum": 1},
+        "revenue": bson.M{"$sum": "$total"},
     }).
-    Sort(bson.M{"totalSpent": -1})
-
-pipeline := ab.Build()
-var results []UserOrderSummary
-err := client.Aggregate(ctx, "users", pipeline, &results)
+    Sort(bson.D{
+        {Key: "_id.year", Value: -1},
+        {Key: "_id.month", Value: -1},
+    })
 ```
 
-**Tag Frequency Analysis**
-```go
-ab := mongo_kit.NewAggregationBuilder().
-    Unwind("$tags").
-    Group("$tags", bson.M{"count": bson.M{"$sum": 1}}).
-    Sort(bson.M{"count": -1}).
-    Limit(10)
-
-pipeline := ab.Build()
-var tagStats []bson.M
-err := client.Aggregate(ctx, "articles", pipeline, &tagStats)
-```
-
-## Integration with Repository
-
-All builders work seamlessly with the Repository pattern:
-
-```go
-userRepo := mongo_kit.NewRepository[User](client, "users")
-
-// QueryBuilder with Repository
-qb := mongo_kit.NewQueryBuilder().
-    Equals("status", "active").
-    GreaterThan("age", 18)
-users, err := userRepo.FindWithBuilder(ctx, qb)
-
-// UpdateBuilder with Repository
-ub := mongo_kit.NewUpdateBuilder().
-    Set("last_login", time.Now()).
-    Inc("login_count", 1)
-result, err := userRepo.UpdateOne(ctx, filter, ub.Build())
-
-// AggregationBuilder with Repository
-ab := mongo_kit.NewAggregationBuilder().
-    Match(bson.M{"status": "active"}).
-    Group("$role", bson.M{"count": bson.M{"$sum": 1}})
-var stats []RoleStats
-err := userRepo.Aggregate(ctx, ab.Build(), &stats)
-```
+See [examples/aggregations/](../examples/aggregations/) for complete working examples.
 
 ## Best Practices
 
-- **Chain methods** for readability
-- **Reuse builders** for common queries
-- **Use GetFilter()** when you only need the filter without options
-- **Combine builders** with logical operators for complex queries
-- **Use Where()** for operators not covered by dedicated methods
-- **Build once** - Call Build() only when ready to execute the query
+1. **Use builders for complex queries** - More readable than raw bson.M
+2. **Chain operations** - Fluent interface makes code clean
+3. **Type aggregation results as primitive.M** - Aggregations return different structure
+4. **Combine with Repository methods** - Use `FindWithBuilder`, `CountWithBuilder`, etc.
+5. **Test your queries** - Verify generated BSON matches expectations
+
+## See Also
+
+- [operations.md](operations.md) - All repository operations
+- [repository.md](repository.md) - Repository pattern guide
+- [examples/](../examples/) - Complete working examples

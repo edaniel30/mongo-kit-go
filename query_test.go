@@ -135,104 +135,106 @@ func TestQueryBuilder_FilterOperators(t *testing.T) {
 }
 
 func TestQueryBuilder_LogicalOperators(t *testing.T) {
-	cond1 := bson.D{{Key: "status", Value: "active"}}
-	cond2 := bson.D{{Key: "verified", Value: true}}
+	// Test raw bson.D conditions
+	t.Run("Raw conditions", func(t *testing.T) {
+		cond1 := bson.D{{Key: "status", Value: "active"}}
+		cond2 := bson.D{{Key: "verified", Value: true}}
 
-	tests := []struct {
-		name        string
-		build       func() *QueryBuilder
-		expectedOp  string
-		expectEmpty bool
-	}{
-		{
-			name:       "And with conditions",
-			build:      func() *QueryBuilder { return NewQueryBuilder().And(cond1, cond2) },
-			expectedOp: "$and",
-		},
-		{
-			name:        "And empty",
-			build:       func() *QueryBuilder { return NewQueryBuilder().And() },
-			expectEmpty: true,
-		},
-		{
-			name:       "Or with conditions",
-			build:      func() *QueryBuilder { return NewQueryBuilder().Or(cond1, cond2) },
-			expectedOp: "$or",
-		},
-		{
-			name:        "Or empty",
-			build:       func() *QueryBuilder { return NewQueryBuilder().Or() },
-			expectEmpty: true,
-		},
-		{
-			name:       "Nor with conditions",
-			build:      func() *QueryBuilder { return NewQueryBuilder().Nor(cond1, cond2) },
-			expectedOp: "$nor",
-		},
-		{
-			name:        "Nor empty",
-			build:       func() *QueryBuilder { return NewQueryBuilder().Nor() },
-			expectEmpty: true,
-		},
-	}
+		tests := []struct {
+			name        string
+			build       func() *QueryBuilder
+			expectedOp  string
+			expectEmpty bool
+		}{
+			{
+				name:       "And with conditions",
+				build:      func() *QueryBuilder { return NewQueryBuilder().And(cond1, cond2) },
+				expectedOp: "$and",
+			},
+			{
+				name:        "And empty",
+				build:       func() *QueryBuilder { return NewQueryBuilder().And() },
+				expectEmpty: true,
+			},
+			{
+				name:       "Or with conditions",
+				build:      func() *QueryBuilder { return NewQueryBuilder().Or(cond1, cond2) },
+				expectedOp: "$or",
+			},
+			{
+				name:        "Or empty",
+				build:       func() *QueryBuilder { return NewQueryBuilder().Or() },
+				expectEmpty: true,
+			},
+			{
+				name:       "Nor with conditions",
+				build:      func() *QueryBuilder { return NewQueryBuilder().Nor(cond1, cond2) },
+				expectedOp: "$nor",
+			},
+			{
+				name:        "Nor empty",
+				build:       func() *QueryBuilder { return NewQueryBuilder().Nor() },
+				expectEmpty: true,
+			},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			qb := tt.build()
-			filter := qb.GetFilter()
+		testLogicalOperators(t, tests)
+	})
 
-			if tt.expectEmpty {
-				assert.Empty(t, filter)
-			} else {
-				require.Len(t, filter, 1)
-				assert.Equal(t, tt.expectedOp, filter[0].Key)
-			}
-		})
-	}
+	// Test QueryBuilder conditions
+	t.Run("QueryBuilder conditions", func(t *testing.T) {
+		builder1 := NewQueryBuilder().Equals("status", "active")
+		builder2 := NewQueryBuilder().GreaterThan("age", 18)
+
+		tests := []struct {
+			name        string
+			build       func() *QueryBuilder
+			expectedOp  string
+			expectEmpty bool
+		}{
+			{
+				name:       "AndConditions",
+				build:      func() *QueryBuilder { return NewQueryBuilder().AndConditions(builder1, builder2) },
+				expectedOp: "$and",
+			},
+			{
+				name:        "AndConditions empty",
+				build:       func() *QueryBuilder { return NewQueryBuilder().AndConditions() },
+				expectEmpty: true,
+			},
+			{
+				name:       "OrConditions",
+				build:      func() *QueryBuilder { return NewQueryBuilder().OrConditions(builder1, builder2) },
+				expectedOp: "$or",
+			},
+			{
+				name:        "OrConditions empty",
+				build:       func() *QueryBuilder { return NewQueryBuilder().OrConditions() },
+				expectEmpty: true,
+			},
+			{
+				name:       "NorConditions",
+				build:      func() *QueryBuilder { return NewQueryBuilder().NorConditions(builder1, builder2) },
+				expectedOp: "$nor",
+			},
+			{
+				name:        "NorConditions empty",
+				build:       func() *QueryBuilder { return NewQueryBuilder().NorConditions() },
+				expectEmpty: true,
+			},
+		}
+
+		testLogicalOperators(t, tests)
+	})
 }
 
-func TestQueryBuilder_ConditionBuilders(t *testing.T) {
-	builder1 := NewQueryBuilder().Equals("status", "active")
-	builder2 := NewQueryBuilder().GreaterThan("age", 18)
-
-	tests := []struct {
-		name        string
-		build       func() *QueryBuilder
-		expectedOp  string
-		expectEmpty bool
-	}{
-		{
-			name:       "AndConditions",
-			build:      func() *QueryBuilder { return NewQueryBuilder().AndConditions(builder1, builder2) },
-			expectedOp: "$and",
-		},
-		{
-			name:        "AndConditions empty",
-			build:       func() *QueryBuilder { return NewQueryBuilder().AndConditions() },
-			expectEmpty: true,
-		},
-		{
-			name:       "OrConditions",
-			build:      func() *QueryBuilder { return NewQueryBuilder().OrConditions(builder1, builder2) },
-			expectedOp: "$or",
-		},
-		{
-			name:        "OrConditions empty",
-			build:       func() *QueryBuilder { return NewQueryBuilder().OrConditions() },
-			expectEmpty: true,
-		},
-		{
-			name:       "NorConditions",
-			build:      func() *QueryBuilder { return NewQueryBuilder().NorConditions(builder1, builder2) },
-			expectedOp: "$nor",
-		},
-		{
-			name:        "NorConditions empty",
-			build:       func() *QueryBuilder { return NewQueryBuilder().NorConditions() },
-			expectEmpty: true,
-		},
-	}
-
+// testLogicalOperators is a helper function to test logical operators and avoid code duplication
+func testLogicalOperators(t *testing.T, tests []struct {
+	name        string
+	build       func() *QueryBuilder
+	expectedOp  string
+	expectEmpty bool
+}) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			qb := tt.build()

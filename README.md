@@ -1,8 +1,8 @@
 # mongo-kit-go
 
-A clean, type-safe MongoDB client library for Go with intuitive API and comprehensive tooling.
+A clean, type-safe MongoDB client library for Go using the Repository pattern with generics.
 
-[![Go Version](https://img.shields.io/badge/Go-1.21%2B-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Installation
@@ -14,20 +14,51 @@ go get github.com/edaniel30/mongo-kit-go
 ## Quick Start
 
 ```go
-import "github.com/edaniel30/mongo-kit-go"
+import (
+    "context"
+    mongokit "github.com/edaniel30/mongo-kit-go"
+    "go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+// Define your model
+type User struct {
+    ID    primitive.ObjectID `bson:"_id,omitempty"`
+    Name  string             `bson:"name"`
+    Email string             `bson:"email"`
+    Age   int                `bson:"age"`
+}
 
 // Create client
-client, _ := mongo_kit.New(
-    mongo_kit.DefaultConfig(),
-    mongo_kit.WithURI("mongodb://localhost:27017"),
-    mongo_kit.WithDatabase("myapp"),
+client, err := mongokit.New(
+    mongokit.DefaultConfig(),
+    mongokit.WithURI("mongodb://localhost:27017"),
+    mongokit.WithDatabase("myapp"),
 )
-defer client.Close(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+defer client.Close(context.Background())
 
-// Insert & Find
-id, _ := client.InsertOne(ctx, "users", bson.M{"name": "John"})
-var user bson.M
-client.FindOne(ctx, "users", bson.M{"_id": id}, &user)
+// Create repository
+userRepo := mongokit.NewRepository[User](client, "users")
+
+// Use it!
+ctx := context.Background()
+
+// Create
+user := User{Name: "Alice", Email: "alice@example.com", Age: 25}
+id, _ := userRepo.Create(ctx, user)
+
+// Find
+user, _ := userRepo.FindByID(ctx, id)
+users, _ := userRepo.Find(ctx, map[string]any{"age": map[string]any{"$gte": 18}})
+
+// Update
+update := map[string]any{"$set": map[string]any{"age": 26}}
+userRepo.UpdateByID(ctx, id, update)
+
+// Delete
+userRepo.DeleteByID(ctx, id)
 ```
 
 ## Configuration Options
@@ -38,35 +69,73 @@ client.FindOne(ctx, "users", bson.M{"_id": id}, &user)
 | `WithDatabase(name)` | Default database name | `default` |
 | `WithMaxPoolSize(size)` | Max connections | `100` |
 | `WithTimeout(duration)` | Operation timeout | `10s` |
-| `WithAppName(name)` | Application identifier | `""` |
-| `WithReplicaSet(name)` | Replica set name | `""` |
+| `WithClientOptions(opts)` | Custom driver options | `nil` |
 
-See `config.go` for all available options.
+## Query Builder
 
-## Core Concepts
+Build complex queries with a fluent interface:
 
-**Client-Based Operations** - Direct database operations via the client
 ```go
-client.InsertOne(ctx, "users", document)
-client.Find(ctx, "users", filter, &results)
-```
+qb := mongo_kit.NewQueryBuilder().
+    Equals("status", "active").
+    GreaterThan("age", 18).
+    In("role", "admin", "moderator").
+    Sort("name", true).
+    Limit(10)
 
-**Repository Pattern** - Type-safe, collection-specific interface
-```go
-userRepo := mongo_kit.NewRepository[User](client, "users")
-users, _ := userRepo.FindAll(ctx)
-```
-
-**Fluent Builders** - Build complex queries, updates, and aggregations
-```go
-qb := mongo_kit.NewQueryBuilder().Equals("status", "active").Limit(10)
 users, _ := userRepo.FindWithBuilder(ctx, qb)
 ```
 
-**Context Helpers** - Simplified timeout management
+**Available operators:** `Equals`, `NotEquals`, `GreaterThan`, `LessThan`, `In`, `NotIn`, `Exists`, `Regex`, `And`, `Or`, `Nor`
+
+## Update Builder
+
+Build complex updates:
+
 ```go
-ctx, cancel := client.NewContext()        // For CLI/scripts
-ctx, cancel := client.WithTimeout(ctx)    // For HTTP handlers
+ub := mongo_kit.NewUpdateBuilder().
+    Set("status", "active").
+    Inc("views", 1).
+    Push("tags", "featured").
+    CurrentDate("updated_at")
+
+userRepo.UpdateByID(ctx, id, ub.Build())
+```
+
+**Available operations:** `Set`, `Unset`, `Inc`, `Mul`, `Min`, `Max`, `Push`, `Pull`, `AddToSet`, `Pop`, `CurrentDate`, `Rename`
+
+## Aggregation Builder
+
+Build aggregation pipelines:
+
+```go
+ab := mongo_kit.NewAggregationBuilder().
+    Match(bson.M{"status": "active"}).
+    Group("$category", bson.M{
+        "count": bson.M{"$sum": 1},
+        "total": bson.M{"$sum": "$amount"},
+    }).
+    Sort(bson.D{{Key: "total", Value: -1}})
+
+// Use primitive.M for aggregation results
+aggRepo := mongo_kit.NewRepository[primitive.M](client, "orders")
+results, _ := aggRepo.Aggregate(ctx, ab.Build())
+```
+
+## Examples
+
+Complete working examples are available in the [`examples/`](examples/) directory:
+
+| Example | Description |
+|---------|-------------|
+| [**basic_crud**](examples/basic_crud/) | Create, Read, Update, Delete operations |
+| [**query_builders**](examples/query_builders/) | Complex queries with QueryBuilder |
+| [**update_builders**](examples/update_builders/) | Update operations with UpdateBuilder |
+| [**aggregations**](examples/aggregations/) | Aggregation pipelines with AggregationBuilder |
+
+Run any example:
+```bash
+go run ./examples/basic_crud/main.go
 ```
 
 ## Documentation
@@ -75,64 +144,47 @@ Comprehensive guides for each component:
 
 | Guide | Description |
 |-------|-------------|
-| **[operations](docs/operations.md)** | CRUD operations, indexes, transactions, aggregations |
-| **[query](docs/query.md)** | QueryBuilder, UpdateBuilder, AggregationBuilder |
-| **[repository](docs/repository.md)** | Type-safe repository pattern with generics |
-| **[context](docs/context.md)** | Context helpers and timeout management |
+| [**operations.md**](docs/operations.md) | All repository operations (CRUD, bulk, aggregations) |
+| [**query.md**](docs/query.md) | QueryBuilder, UpdateBuilder, AggregationBuilder |
+| [**repository.md**](docs/repository.md) | Repository pattern with generics |
 
-### Quick Links by Topic
+## Repository API
 
-**Getting Started:**
-- [CRUD Operations](docs/operations.md#crud-operations) - Insert, Find, Update, Delete
-- [Basic Queries](docs/operations.md#query-operations) - Count, Exists, Distinct
+### Create Operations
+- `Create(ctx, doc)` - Insert single document
+- `CreateMany(ctx, docs)` - Insert multiple documents
 
-**Advanced Features:**
-- [Repository Pattern](docs/repository.md) - Type-safe operations
-- [Query Builder](docs/query.md#querybuilder) - Fluent query interface
-- [Aggregations](docs/query.md#aggregationbuilder) - Pipeline builder
-- [Transactions](docs/operations.md#transactions) - Multi-document ACID
-- [Change Streams](docs/operations.md#change-streams) - Real-time monitoring
+### Read Operations
+- `FindByID(ctx, id)` - Find by ObjectID or string
+- `FindOne(ctx, filter, opts...)` - Find single document
+- `Find(ctx, filter, opts...)` - Find multiple documents
+- `FindAll(ctx, opts...)` - Find all documents
+- `FindWithBuilder(ctx, qb)` - Find with QueryBuilder
+- `FindOneWithBuilder(ctx, qb)` - Find one with QueryBuilder
 
-**Best Practices:**
-- [Context Management](docs/context.md) - Timeout strategies
-- [Error Handling](docs/operations.md#error-handling) - Type checking
-- [Batch Operations](docs/repository.md#batch-operations) - Bulk writes
+### Update Operations
+- `UpdateByID(ctx, id, update)` - Update by ID
+- `UpdateOne(ctx, filter, update)` - Update single document
+- `UpdateMany(ctx, filter, update)` - Update multiple documents
+- `Upsert(ctx, filter, update)` - Insert or update
 
-## Example: Repository Pattern
+### Delete Operations
+- `DeleteByID(ctx, id)` - Delete by ID
+- `DeleteOne(ctx, filter)` - Delete single document
+- `DeleteMany(ctx, filter)` - Delete multiple documents
 
-```go
-type User struct {
-    ID    primitive.ObjectID `bson:"_id,omitempty"`
-    Name  string             `bson:"name"`
-    Email string             `bson:"email"`
-}
+### Query Operations
+- `Count(ctx, filter)` - Count matching documents
+- `CountAll(ctx)` - Count all documents
+- `CountWithBuilder(ctx, qb)` - Count with QueryBuilder
+- `EstimatedCount(ctx)` - Fast approximate count
+- `Exists(ctx, filter)` - Check if document exists
+- `ExistsByID(ctx, id)` - Check if ID exists
+- `ExistsWithBuilder(ctx, qb)` - Check existence with QueryBuilder
 
-// Create repository
-userRepo := mongo_kit.NewRepository[User](client, "users")
-
-// Type-safe operations
-user := User{Name: "Alice", Email: "alice@example.com"}
-id, _ := userRepo.Create(ctx, user)
-
-// Query with builder
-qb := mongo_kit.NewQueryBuilder().
-    Equals("status", "active").
-    GreaterThan("age", 18).
-    Sort("name", true)
-
-users, _ := userRepo.FindWithBuilder(ctx, qb)
-```
-
-See [docs/repository.md](docs/repository.md) for complete examples.
-
-## Best Practices
-
-- **Reuse client** - Create once, use across your application
-- **Use contexts** - Always pass context with appropriate timeouts
-- **Close connections** - Defer `client.Close()` after creation
-- **Repository pattern** - Use for type safety and cleaner code
-- **Query builders** - Use for complex queries instead of raw bson.M
-- **Handle errors** - Check for `mongo.ErrNoDocuments` and operation errors
+### Other Operations
+- `Aggregate(ctx, pipeline, opts...)` - Run aggregation pipeline
+- `Drop(ctx)` - Drop entire collection
 
 ## Contributing
 
@@ -140,8 +192,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For issues, questions, or feature requests, please [open an issue](https://github.com/edaniel30/mongo-kit-go/issues) on GitHub.
+MIT License - see the [LICENSE](LICENSE) file for details.

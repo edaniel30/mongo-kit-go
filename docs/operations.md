@@ -1,308 +1,421 @@
-# Operations Guide
+# Repository operations guide
 
-This document provides a concise overview of all database operations available in the mongo_kit client.
+This document covers all database operations available through the Repository pattern.
 
-## CRUD Operations
+## Setup
 
-### Insert
-
-**InsertOne** - Insert a single document
 ```go
-result, err := client.InsertOne(ctx, "users", User{Name: "John", Email: "john@example.com"})
-fmt.Println("Inserted ID:", result.InsertedID)
-```
+import (
+    "context"
+    mongokit "github.com/edaniel30/mongo-kit-go"
+    "go.mongodb.org/mongo-driver/bson/primitive"
+)
 
-**InsertMany** - Insert multiple documents
-```go
-docs := []any{
-    User{Name: "Alice", Email: "alice@example.com"},
-    User{Name: "Bob", Email: "bob@example.com"},
+// Define your model
+type User struct {
+    ID    primitive.ObjectID `bson:"_id,omitempty"`
+    Name  string             `bson:"name"`
+    Email string             `bson:"email"`
+    Age   int                `bson:"age"`
 }
-result, err := client.InsertMany(ctx, "users", docs)
+
+// Create client
+client, _ := mongokit.New(
+    mongokit.DefaultConfig(),
+    mongokit.WithURI("mongodb://localhost:27017"),
+    mongokit.WithDatabase("myapp"),
+)
+defer client.Close(context.Background())
+
+// Create repository
+userRepo := mongokit.NewRepository[User](client, "users")
+ctx := context.Background()
 ```
 
-### Find
+## Create Operations
 
-**FindOne** - Find a single document
+### Create - Insert Single Document
+
 ```go
-var user User
-err := client.FindOne(ctx, "users", bson.M{"email": "john@example.com"}, &user)
+user := User{
+    Name:  "Alice",
+    Email: "alice@example.com",
+    Age:   25,
+}
+
+id, err := userRepo.Create(ctx, user)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("Created ID:", id)
 ```
 
-**Find** - Find multiple documents
+### CreateMany - Insert Multiple Documents
+
 ```go
-var users []User
-err := client.Find(ctx, "users", bson.M{"active": true}, &users)
+users := []User{
+    {Name: "Bob", Email: "bob@example.com", Age: 30},
+    {Name: "Carol", Email: "carol@example.com", Age: 28},
+}
+
+ids, err := userRepo.CreateMany(ctx, users)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Created %d users\n", len(ids))
 ```
 
-**FindByID** - Find by ObjectID or string ID
-```go
-var user User
-err := client.FindByID(ctx, "users", "507f1f77bcf86cd799439011", &user)
-// Also accepts primitive.ObjectID
-```
+## Read Operations
 
-### Update
+### FindByID - Find by ID
 
-**UpdateOne** - Update a single document
 ```go
-update := bson.M{"$set": bson.M{"status": "active"}}
-result, err := client.UpdateOne(ctx, "users", bson.M{"email": email}, update)
-fmt.Println("Modified:", result.ModifiedCount)
-```
+// String ID (automatically converted to ObjectID)
+user, err := userRepo.FindByID(ctx, "507f1f77bcf86cd799439011")
 
-**UpdateMany** - Update multiple documents
-```go
-update := bson.M{"$set": bson.M{"verified": true}}
-result, err := client.UpdateMany(ctx, "users", bson.M{"age": bson.M{"$gte": 18}}, update)
-```
+// Or ObjectID
+objID, _ := primitive.ObjectIDFromHex("507f1f77bcf86cd799439011")
+user, err := userRepo.FindByID(ctx, objID)
 
-**UpdateByID** - Update by ObjectID or string ID
-```go
-update := bson.M{"$set": bson.M{"last_login": time.Now()}}
-result, err := client.UpdateByID(ctx, "users", userID, update)
-```
-
-**ReplaceOne** - Replace entire document (except _id)
-```go
-newUser := User{Name: "John Doe", Email: "john.doe@example.com"}
-result, err := client.ReplaceOne(ctx, "users", bson.M{"email": "john@example.com"}, newUser)
-```
-
-**UpsertOne** - Update or insert if not exists
-```go
-update := bson.M{"$set": bson.M{"name": "John", "email": "john@example.com"}}
-result, err := client.UpsertOne(ctx, "users", bson.M{"email": "john@example.com"}, update)
-if result.UpsertedCount > 0 {
-    fmt.Println("Document created:", result.UpsertedID)
+if errors.Is(err, mongo.ErrNoDocuments) {
+    fmt.Println("User not found")
 }
 ```
 
-### Delete
+### FindOne - Find Single Document
 
-**DeleteOne** - Delete a single document
 ```go
-result, err := client.DeleteOne(ctx, "users", bson.M{"email": "john@example.com"})
-fmt.Println("Deleted:", result.DeletedCount)
+filter := map[string]any{"email": "alice@example.com"}
+user, err := userRepo.FindOne(ctx, filter)
+
+if err != nil {
+    if errors.Is(err, mongo.ErrNoDocuments) {
+        // Handle not found
+    }
+}
 ```
 
-**DeleteMany** - Delete multiple documents
+### Find - Find Multiple Documents
+
 ```go
-result, err := client.DeleteMany(ctx, "users", bson.M{"active": false})
+// Simple filter
+filter := map[string]any{"age": map[string]any{"$gte": 18}}
+users, err := userRepo.Find(ctx, filter)
+
+// With options
+opts := options.Find().SetLimit(10).SetSort(bson.D{{Key: "name", Value: 1}})
+users, err := userRepo.Find(ctx, filter, opts)
 ```
 
-**DeleteByID** - Delete by ObjectID or string ID
+### FindAll - Find All Documents
+
 ```go
-result, err := client.DeleteByID(ctx, "users", "507f1f77bcf86cd799439011")
+users, err := userRepo.FindAll(ctx)
+
+// With options
+opts := options.Find().SetLimit(100)
+users, err := userRepo.FindAll(ctx, opts)
 ```
 
-## Find and Modify
+### FindWithBuilder - Find with QueryBuilder
 
-**FindOneAndUpdate** - Find, update, and return the document
 ```go
-var user User
-update := bson.M{"$inc": bson.M{"login_count": 1}}
-opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
-err := client.FindOneAndUpdate(ctx, "users", bson.M{"email": email}, update, &user, opts)
+qb := mongokit.NewQueryBuilder().
+    Equals("active", true).
+    GreaterThan("age", 18).
+    Sort("name", true).
+    Limit(10)
+
+users, err := userRepo.FindWithBuilder(ctx, qb)
 ```
 
-**FindOneAndReplace** - Find, replace, and return the document
+### FindOneWithBuilder - Find One with QueryBuilder
+
 ```go
-var user User
-newUser := User{Name: "John Updated", Email: "john@example.com"}
-err := client.FindOneAndReplace(ctx, "users", bson.M{"email": email}, newUser, &user)
+qb := mongokit.NewQueryBuilder().
+    Equals("email", "alice@example.com")
+
+user, err := userRepo.FindOneWithBuilder(ctx, qb)
 ```
 
-**FindOneAndDelete** - Find, delete, and return the document
+## Update Operations
+
+### UpdateByID - Update by ID
+
 ```go
-var user User
-err := client.FindOneAndDelete(ctx, "users", bson.M{"email": email}, &user)
+update := map[string]any{
+    "$set": map[string]any{
+        "age": 26,
+        "updated_at": time.Now(),
+    },
+}
+
+result, err := userRepo.UpdateByID(ctx, id, update)
+fmt.Printf("Modified %d document(s)\n", result.ModifiedCount)
+```
+
+### UpdateOne - Update Single Document
+
+```go
+filter := map[string]any{"email": "alice@example.com"}
+update := map[string]any{
+    "$inc": map[string]any{"age": 1},
+}
+
+result, err := userRepo.UpdateOne(ctx, filter, update)
+```
+
+### UpdateMany - Update Multiple Documents
+
+```go
+filter := map[string]any{"age": map[string]any{"$lt": 18}}
+update := map[string]any{
+    "$set": map[string]any{"status": "minor"},
+}
+
+result, err := userRepo.UpdateMany(ctx, filter, update)
+fmt.Printf("Modified %d document(s)\n", result.ModifiedCount)
+```
+
+### Upsert - Insert or Update
+
+```go
+filter := map[string]any{"email": "dave@example.com"}
+update := map[string]any{
+    "$set": map[string]any{
+        "name": "Dave",
+        "age": 35,
+    },
+}
+
+result, err := userRepo.Upsert(ctx, filter, update)
+if result.UpsertedID != nil {
+    fmt.Println("Inserted new document")
+} else {
+    fmt.Println("Updated existing document")
+}
+```
+
+## Delete Operations
+
+### DeleteByID - Delete by ID
+
+```go
+result, err := userRepo.DeleteByID(ctx, id)
+if result.DeletedCount == 0 {
+    fmt.Println("No document found")
+}
+```
+
+### DeleteOne - Delete Single Document
+
+```go
+filter := map[string]any{"email": "old@example.com"}
+result, err := userRepo.DeleteOne(ctx, filter)
+```
+
+### DeleteMany - Delete Multiple Documents
+
+```go
+filter := map[string]any{"active": false}
+result, err := userRepo.DeleteMany(ctx, filter)
+fmt.Printf("Deleted %d document(s)\n", result.DeletedCount)
 ```
 
 ## Query Operations
 
-**CountDocuments** - Count matching documents (accurate)
+### Count - Count Documents
+
 ```go
-count, err := client.CountDocuments(ctx, "users", bson.M{"active": true})
+filter := map[string]any{"age": map[string]any{"$gte": 18}}
+count, err := userRepo.Count(ctx, filter)
+fmt.Printf("Found %d adults\n", count)
 ```
 
-**EstimatedDocumentCount** - Fast approximate count (uses metadata)
+### CountAll - Count All Documents
+
 ```go
-count, err := client.EstimatedDocumentCount(ctx, "users")
+count, err := userRepo.CountAll(ctx)
 ```
 
-**Distinct** - Get distinct values for a field
+### CountWithBuilder - Count with QueryBuilder
+
 ```go
-values, err := client.Distinct(ctx, "users", "country", bson.M{"active": true})
-for _, v := range values {
-    fmt.Println(v)
+qb := mongokit.NewQueryBuilder().
+    Equals("active", true).
+    GreaterThan("age", 18)
+
+count, err := userRepo.CountWithBuilder(ctx, qb)
+```
+
+### EstimatedCount - Fast Approximate Count
+
+```go
+// Fast but approximate (uses collection metadata)
+count, err := userRepo.EstimatedCount(ctx)
+```
+
+### Exists - Check if Document Exists
+
+```go
+filter := map[string]any{"email": "alice@example.com"}
+exists, err := userRepo.Exists(ctx, filter)
+if exists {
+    fmt.Println("User exists")
 }
 ```
 
-**Aggregate** - Run aggregation pipeline
+### ExistsByID - Check if ID Exists
+
 ```go
+exists, err := userRepo.ExistsByID(ctx, id)
+```
+
+### ExistsWithBuilder - Check Existence with QueryBuilder
+
+```go
+qb := mongokit.NewQueryBuilder().
+    Equals("email", "alice@example.com")
+
+exists, err := userRepo.ExistsWithBuilder(ctx, qb)
+```
+
+## Aggregation Operations
+
+### Aggregate - Run Aggregation Pipeline
+
+```go
+// Define pipeline
 pipeline := []bson.M{
-    {"$match": bson.M{"active": true}},
-    {"$group": bson.M{"_id": "$country", "count": bson.M{"$sum": 1}}},
+    {"$match": bson.M{"age": bson.M{"$gte": 18}}},
+    {"$group": bson.M{
+        "_id": "$status",
+        "count": bson.M{"$sum": 1},
+        "avgAge": bson.M{"$avg": "$age"},
+    }},
+    {"$sort": bson.M{"count": -1}},
 }
-var results []bson.M
-err := client.Aggregate(ctx, "users", pipeline, &results)
-```
 
-## Bulk Operations
+// Create repository for aggregation results (use primitive.M)
+aggRepo := mongokit.NewRepository[primitive.M](client, "users")
+results, err := aggRepo.Aggregate(ctx, pipeline)
 
-**BulkWrite** - Execute multiple write operations in one call
-```go
-models := []mongo.WriteModel{
-    mongo.NewInsertOneModel().SetDocument(User{Name: "Alice"}),
-    mongo.NewUpdateOneModel().SetFilter(bson.M{"name": "Bob"}).SetUpdate(bson.M{"$set": bson.M{"active": true}}),
-    mongo.NewDeleteOneModel().SetFilter(bson.M{"name": "Charlie"}),
-}
-result, err := client.BulkWrite(ctx, "users", models)
-fmt.Printf("Inserted: %d, Modified: %d, Deleted: %d\n",
-    result.InsertedCount, result.ModifiedCount, result.DeletedCount)
-```
-
-## Index Operations
-
-**CreateIndex** - Create a single index
-```go
-keys := bson.D{{"email", 1}}
-opts := options.Index().SetUnique(true)
-indexName, err := client.CreateIndex(ctx, "users", keys, opts)
-```
-
-**CreateIndexes** - Create multiple indexes across collections
-```go
-indexes := map[string][]mongo.IndexModel{
-    "users": {
-        {Keys: bson.D{{"email", 1}}, Options: options.Index().SetUnique(true)},
-        {Keys: bson.D{{"created_at", -1}}},
-    },
-    "orders": {
-        {Keys: bson.D{{"user_id", 1}, {"status", 1}}},
-    },
-}
-results, err := client.CreateIndexes(ctx, indexes)
-```
-
-**DropIndex** - Drop an index
-```go
-err := client.DropIndex(ctx, "users", "email_1")
-```
-
-**ListIndexes** - List all indexes in a collection
-```go
-indexes, err := client.ListIndexes(ctx, "users")
-for _, idx := range indexes {
-    fmt.Println(idx["name"])
+for _, result := range results {
+    fmt.Printf("Status: %s, Count: %d, Avg Age: %.1f\n",
+        result["_id"], result["count"], result["avgAge"])
 }
 ```
 
-## Collection Management
+### Aggregate with AggregationBuilder
 
-**CreateCollection** - Create a collection with options
 ```go
-opts := options.CreateCollection().SetCapped(true).SetSizeInBytes(1024*1024)
-err := client.CreateCollection(ctx, "logs", opts)
+ab := mongokit.NewAggregationBuilder().
+    Match(bson.M{"age": bson.M{"$gte": 18}}).
+    Group("$status", bson.M{
+        "count": bson.M{"$sum": 1},
+        "avgAge": bson.M{"$avg": "$age"},
+    }).
+    Sort(bson.D{{Key: "count", Value: -1}})
+
+aggRepo := mongokit.NewRepository[primitive.M](client, "users")
+results, err := aggRepo.Aggregate(ctx, ab.Build())
 ```
 
-**CreateCollections** - Create multiple collections at once
+See [examples/aggregations/](../examples/aggregations/) for complete aggregation examples.
+
+## Collection Operations
+
+### Drop - Drop Collection
+
+**WARNING**: This permanently deletes the entire collection including all documents and indexes.
+
 ```go
-collections := map[string]*options.CreateCollectionOptions{
-    "logs": options.CreateCollection().SetCapped(true).SetSizeInBytes(1024*1024),
-    "cache": options.CreateCollection().SetExpireAfterSeconds(3600),
-}
-err := client.CreateCollections(ctx, collections)
-```
-
-**ListCollections** - List all collections in the database
-```go
-collections, err := client.ListCollections(ctx)
-for _, name := range collections {
-    fmt.Println(name)
-}
-```
-
-**DropCollection** - Delete a collection
-```go
-err := client.DropCollection(ctx, "temp_data")
-```
-
-**DropDatabase** - Delete an entire database
-```go
-err := client.DropDatabase(ctx, "test_database")
-```
-
-## Transactions
-
-**WithTransaction** - Execute operations in a transaction
-```go
-err := client.WithTransaction(ctx, func(sessCtx mongo.SessionContext) error {
-    // All operations here are atomic
-    _, err := client.InsertOne(sessCtx, "orders", order)
-    if err != nil {
-        return err // Transaction will rollback
-    }
-
-    update := bson.M{"$inc": bson.M{"stock": -1}}
-    _, err = client.UpdateOne(sessCtx, "products", bson.M{"_id": productID}, update)
-    if err != nil {
-        return err // Transaction will rollback
-    }
-
-    return nil // Transaction will commit
-})
-```
-
-**Important:** Transactions require MongoDB 4.0+ and a replica set or sharded cluster.
-
-## Change Streams
-
-**Watch** - Monitor real-time changes to a collection
-```go
-pipeline := []bson.M{{"$match": bson.M{"operationType": "insert"}}}
-stream, err := client.Watch(ctx, "users", pipeline)
+err := userRepo.Drop(ctx)
 if err != nil {
     log.Fatal(err)
 }
-defer stream.Close(ctx)
-
-for stream.Next(ctx) {
-    var event bson.M
-    if err := stream.Decode(&event); err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println("Change detected:", event)
-}
-```
-
-**Important:** Change streams require MongoDB 3.6+ and a replica set or sharded cluster.
-
-## ID Handling
-
-Methods that accept `id` parameter (FindByID, UpdateByID, DeleteByID) support both:
-- **string**: Automatically converted to ObjectID
-- **primitive.ObjectID**: Used directly
-
-```go
-// Both work
-client.FindByID(ctx, "users", "507f1f77bcf86cd799439011", &user)
-client.FindByID(ctx, "users", objectID, &user)
 ```
 
 ## Error Handling
 
-All operations return typed errors that can be checked:
+### Common Error Patterns
+
 ```go
-err := client.FindOne(ctx, "users", bson.M{"email": email}, &user)
+// Handle not found
+user, err := userRepo.FindByID(ctx, id)
 if err != nil {
     if errors.Is(err, mongo.ErrNoDocuments) {
-        // Document not found
-    } else if mongo.IsDuplicateKeyError(err) {
-        // Unique constraint violation
-    } else {
-        // Other error
+        return nil, fmt.Errorf("user not found")
     }
+    return nil, fmt.Errorf("database error: %w", err)
+}
+
+// Handle operation errors
+result, err := userRepo.UpdateByID(ctx, id, update)
+if err != nil {
+    var opErr *mongokit.OperationError
+    if errors.As(err, &opErr) {
+        log.Printf("Operation %s failed: %v", opErr.Op, opErr.Cause)
+    }
+    return err
+}
+
+// Check affected count
+if result.ModifiedCount == 0 {
+    return fmt.Errorf("no documents were modified")
 }
 ```
+
+## Best Practices
+
+1. **Always use contexts with timeouts**
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+```
+
+2. **Handle ErrNoDocuments explicitly**
+```go
+if errors.Is(err, mongo.ErrNoDocuments) {
+    // This is expected in many cases
+}
+```
+
+3. **Use UpdateBuilder for complex updates**
+```go
+ub := mongokit.NewUpdateBuilder().
+    Set("status", "active").
+    Inc("views", 1).
+    CurrentDate("updated_at")
+
+userRepo.UpdateByID(ctx, id, ub.Build())
+```
+
+4. **Use QueryBuilder for complex queries**
+```go
+qb := mongokit.NewQueryBuilder().
+    Equals("active", true).
+    GreaterThan("age", 18).
+    Sort("name", true)
+
+users, _ := userRepo.FindWithBuilder(ctx, qb)
+```
+
+5. **Check operation results**
+```go
+result, err := userRepo.DeleteMany(ctx, filter)
+if err != nil {
+    return err
+}
+if result.DeletedCount == 0 {
+    log.Println("Warning: No documents were deleted")
+}
+```
+
+## Complete Examples
+
+For complete working examples with detailed comments, see:
+- [examples/basic_crud/](../examples/basic_crud/) - All CRUD operations
+- [examples/query_builders/](../examples/query_builders/) - Query building
+- [examples/update_builders/](../examples/update_builders/) - Update operations
+- [examples/aggregations/](../examples/aggregations/) - Aggregation pipelines

@@ -35,7 +35,7 @@ func TestRepository_Integration(t *testing.T) {
 
 	client, err := New(cfg)
 	require.NoError(t, err)
-	defer client.Close(context.Background())
+	defer func() { _ = client.Close(context.Background()) }()
 
 	repo := NewRepository[User](client, "users")
 	ctx := context.Background()
@@ -43,11 +43,10 @@ func TestRepository_Integration(t *testing.T) {
 	t.Run("NewRepository creates repository", func(t *testing.T) {
 		assert.NotNil(t, repo)
 		assert.Equal(t, "users", repo.Collection())
-		assert.Equal(t, client, repo.Client())
 	})
 
 	t.Run("Create inserts document", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		user := User{Name: "John", Email: "john@test.com", Age: 30, Active: true}
 		id, err := repo.Create(ctx, user)
@@ -57,7 +56,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("CreateMany inserts multiple documents", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		users := []User{
 			{Name: "Alice", Email: "alice@test.com", Age: 25, Active: true},
@@ -70,7 +69,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindByID returns document", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		user := User{Name: "FindMe", Email: "find@test.com", Age: 28, Active: true}
 		id, _ := repo.Create(ctx, user)
@@ -82,15 +81,15 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindByID returns error when not found", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		_, err := repo.FindByID(ctx, primitive.NewObjectID())
 		assert.ErrorIs(t, err, mongo.ErrNoDocuments)
 	})
 
 	t.Run("FindOne returns document", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.Create(ctx, User{Name: "FindOne", Email: "one@test.com", Age: 30, Active: true})
+		_ = repo.Drop(ctx)
+		_, _ = repo.Create(ctx, User{Name: "FindOne", Email: "one@test.com", Age: 30, Active: true})
 
 		found, err := repo.FindOne(ctx, bson.M{"name": "FindOne"})
 		require.NoError(t, err)
@@ -98,15 +97,15 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindOne returns error when not found", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		_, err := repo.FindOne(ctx, bson.M{"name": "nonexistent"})
 		assert.ErrorIs(t, err, mongo.ErrNoDocuments)
 	})
 
 	t.Run("Find returns matching documents", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Active1", Email: "a1@test.com", Age: 25, Active: true},
 			{Name: "Active2", Email: "a2@test.com", Age: 30, Active: true},
 			{Name: "Inactive", Email: "i@test.com", Age: 35, Active: false},
@@ -118,7 +117,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Find returns empty slice when no match", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		found, err := repo.Find(ctx, bson.M{"name": "nonexistent"})
 		require.NoError(t, err)
@@ -126,8 +125,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindAll returns all documents", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "All1", Email: "all1@test.com", Age: 25, Active: true},
 			{Name: "All2", Email: "all2@test.com", Age: 30, Active: false},
 		})
@@ -138,7 +137,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("UpdateByID updates document", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 		id, _ := repo.Create(ctx, User{Name: "ToUpdate", Email: "update@test.com", Age: 25, Active: true})
 
 		result, err := repo.UpdateByID(ctx, id, bson.M{"$set": bson.M{"age": 26}})
@@ -150,8 +149,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("UpdateOne updates single document", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.Create(ctx, User{Name: "UpdateOne", Email: "one@test.com", Age: 25, Active: true})
+		_ = repo.Drop(ctx)
+		_, _ = repo.Create(ctx, User{Name: "UpdateOne", Email: "one@test.com", Age: 25, Active: true})
 
 		result, err := repo.UpdateOne(ctx, bson.M{"name": "UpdateOne"}, bson.M{"$set": bson.M{"age": 30}})
 		require.NoError(t, err)
@@ -159,8 +158,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("UpdateMany updates multiple documents", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Many1", Email: "m1@test.com", Age: 25, Active: false},
 			{Name: "Many2", Email: "m2@test.com", Age: 30, Active: false},
 		})
@@ -171,7 +170,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Upsert inserts when not exists", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		result, err := repo.Upsert(ctx, bson.M{"email": "upsert@test.com"}, bson.M{"$set": bson.M{"name": "Upserted", "age": 40}})
 		require.NoError(t, err)
@@ -179,8 +178,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Upsert updates when exists", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.Create(ctx, User{Name: "Existing", Email: "existing@test.com", Age: 25, Active: true})
+		_ = repo.Drop(ctx)
+		_, _ = repo.Create(ctx, User{Name: "Existing", Email: "existing@test.com", Age: 25, Active: true})
 
 		result, err := repo.Upsert(ctx, bson.M{"email": "existing@test.com"}, bson.M{"$set": bson.M{"age": 30}})
 		require.NoError(t, err)
@@ -188,7 +187,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("DeleteByID deletes document", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 		id, _ := repo.Create(ctx, User{Name: "ToDelete", Email: "delete@test.com", Age: 25, Active: true})
 
 		result, err := repo.DeleteByID(ctx, id)
@@ -200,8 +199,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("DeleteOne deletes single document", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.Create(ctx, User{Name: "DeleteOne", Email: "d1@test.com", Age: 25, Active: true})
+		_ = repo.Drop(ctx)
+		_, _ = repo.Create(ctx, User{Name: "DeleteOne", Email: "d1@test.com", Age: 25, Active: true})
 
 		result, err := repo.DeleteOne(ctx, bson.M{"name": "DeleteOne"})
 		require.NoError(t, err)
@@ -209,8 +208,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("DeleteMany deletes multiple documents", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "DelMany1", Email: "dm1@test.com", Age: 25, Active: false},
 			{Name: "DelMany2", Email: "dm2@test.com", Age: 30, Active: false},
 		})
@@ -221,8 +220,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Count returns document count", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Count1", Email: "c1@test.com", Age: 25, Active: true},
 			{Name: "Count2", Email: "c2@test.com", Age: 30, Active: true},
 			{Name: "Count3", Email: "c3@test.com", Age: 35, Active: false},
@@ -234,8 +233,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("CountAll returns total count", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "All1", Email: "all1@test.com", Age: 25, Active: true},
 			{Name: "All2", Email: "all2@test.com", Age: 30, Active: false},
 		})
@@ -246,8 +245,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("EstimatedCount returns count", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Est1", Email: "est1@test.com", Age: 25, Active: true},
 			{Name: "Est2", Email: "est2@test.com", Age: 30, Active: false},
 		})
@@ -258,8 +257,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Exists returns true when document exists", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.Create(ctx, User{Name: "Exists", Email: "exists@test.com", Age: 25, Active: true})
+		_ = repo.Drop(ctx)
+		_, _ = repo.Create(ctx, User{Name: "Exists", Email: "exists@test.com", Age: 25, Active: true})
 
 		exists, err := repo.Exists(ctx, bson.M{"name": "Exists"})
 		require.NoError(t, err)
@@ -267,7 +266,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Exists returns false when document does not exist", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		exists, err := repo.Exists(ctx, bson.M{"name": "nonexistent"})
 		require.NoError(t, err)
@@ -275,7 +274,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("ExistsByID returns true when document exists", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 		id, _ := repo.Create(ctx, User{Name: "ExistsID", Email: "eid@test.com", Age: 25, Active: true})
 
 		exists, err := repo.ExistsByID(ctx, id)
@@ -284,7 +283,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("ExistsByID returns false when document does not exist", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		exists, err := repo.ExistsByID(ctx, primitive.NewObjectID())
 		require.NoError(t, err)
@@ -292,8 +291,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Aggregate executes pipeline", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Agg1", Email: "agg1@test.com", Age: 25, Active: true},
 			{Name: "Agg2", Email: "agg2@test.com", Age: 30, Active: true},
 		})
@@ -311,7 +310,7 @@ func TestRepository_Integration(t *testing.T) {
 
 	t.Run("Drop removes collection", func(t *testing.T) {
 		dropRepo := NewRepository[User](client, "to_drop_repo")
-		dropRepo.Create(ctx, User{Name: "DropMe"})
+		_, _ = dropRepo.Create(ctx, User{Name: "DropMe"})
 
 		err := dropRepo.Drop(ctx)
 		require.NoError(t, err)
@@ -321,8 +320,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindWithBuilder uses QueryBuilder", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Builder1", Email: "b1@test.com", Age: 25, Active: true},
 			{Name: "Builder2", Email: "b2@test.com", Age: 30, Active: true},
 			{Name: "Builder3", Email: "b3@test.com", Age: 35, Active: false},
@@ -341,8 +340,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindOneWithBuilder returns single document", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "One1", Email: "o1@test.com", Age: 25, Active: true},
 			{Name: "One2", Email: "o2@test.com", Age: 30, Active: true},
 		})
@@ -357,7 +356,7 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("FindOneWithBuilder returns error when not found", func(t *testing.T) {
-		repo.Drop(ctx)
+		_ = repo.Drop(ctx)
 
 		qb := NewQueryBuilder().Equals("name", "nonexistent")
 
@@ -366,8 +365,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("CountWithBuilder counts matching documents", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.CreateMany(ctx, []User{
+		_ = repo.Drop(ctx)
+		_, _ = repo.CreateMany(ctx, []User{
 			{Name: "Count1", Email: "c1@test.com", Age: 25, Active: true},
 			{Name: "Count2", Email: "c2@test.com", Age: 30, Active: true},
 			{Name: "Count3", Email: "c3@test.com", Age: 35, Active: false},
@@ -381,8 +380,8 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("ExistsWithBuilder checks existence", func(t *testing.T) {
-		repo.Drop(ctx)
-		repo.Create(ctx, User{Name: "ExistsBuilder", Email: "eb@test.com", Age: 25, Active: true})
+		_ = repo.Drop(ctx)
+		_, _ = repo.Create(ctx, User{Name: "ExistsBuilder", Email: "eb@test.com", Age: 25, Active: true})
 
 		qb := NewQueryBuilder().Equals("name", "ExistsBuilder")
 		exists, err := repo.ExistsWithBuilder(ctx, qb)

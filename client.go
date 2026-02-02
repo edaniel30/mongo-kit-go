@@ -11,10 +11,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Client wraps the MongoDB driver client with convenience methods.
+// client wraps the MongoDB driver client with convenience methods.
 // It provides a simpler API for common operations while maintaining thread-safety.
 // The client is safe for concurrent use across multiple goroutines.
-type Client struct {
+// Note: This type is unexported. Users should interact with repositories and managers instead.
+type client struct {
 	config    Config
 	client    *mongo.Client
 	defaultDB *mongo.Database
@@ -47,7 +48,7 @@ type Client struct {
 //   - Configuration is invalid
 //   - Connection to MongoDB fails
 //   - Ping verification fails
-func New(cfg Config, opts ...Option) (*Client, error) {
+func New(cfg Config, opts ...Option) (*client, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -82,48 +83,17 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 
 	if err := mongoClient.Ping(ctx, nil); err != nil {
 		if disconnectErr := mongoClient.Disconnect(context.Background()); disconnectErr != nil {
-			return nil, newConnectionError(fmt.Errorf("ping failed: %w, disconnect also failed: %v", err, disconnectErr))
+			return nil, newConnectionError(fmt.Errorf("ping failed: %w, disconnect also failed: %w", err, disconnectErr))
 		}
 		return nil, newConnectionError(err)
 	}
 
-	return &Client{
+	return &client{
 		config:    cfg,
 		client:    mongoClient,
 		defaultDB: mongoClient.Database(cfg.Database),
 		closed:    false,
 	}, nil
-}
-
-// Ping verifies the connection to MongoDB.
-// Returns an error if the client is closed or the connection check fails.
-//
-// Example:
-//
-//	if err := client.Ping(ctx); err != nil {
-//	    log.Println("Connection lost:", err)
-//	}
-func (c *Client) Ping(ctx context.Context) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.closed {
-		return ErrClientClosed
-	}
-
-	return c.client.Ping(ctx, nil)
-}
-
-// IsConnected checks if the client is connected to MongoDB.
-// This is a convenience method that calls Ping and returns true if successful.
-//
-// Example:
-//
-//	if !client.IsConnected(ctx) {
-//	    log.Println("Not connected to MongoDB")
-//	}
-func (c *Client) IsConnected(ctx context.Context) bool {
-	return c.Ping(ctx) == nil
 }
 
 // Close closes the MongoDB client connection gracefully.
@@ -133,7 +103,7 @@ func (c *Client) IsConnected(ctx context.Context) bool {
 // Example:
 //
 //	defer client.Close(context.Background())
-func (c *Client) Close(ctx context.Context) error {
+func (c *client) Close(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -145,114 +115,18 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.client.Disconnect(ctx)
 }
 
-// IsClosed returns true if the client has been closed.
-//
-// Example:
-//
-//	if client.IsClosed() {
-//	    log.Println("Client is closed")
-//	}
-func (c *Client) IsClosed() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.closed
-}
-
-// StartSession starts a new session for transaction support.
-// Returns an error if the client is closed.
-//
-// Example:
-//
-//	session, err := client.StartSession()
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	defer session.EndSession(context.Background())
-func (c *Client) StartSession(opts ...*options.SessionOptions) (mongo.Session, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.closed {
-		return nil, ErrClientClosed
-	}
-
-	return c.client.StartSession(opts...)
-}
-
-// UseSession executes a function within a session.
-// This is useful for running operations that need to be part of the same session.
-//
-// Example:
-//
-//	err := client.UseSession(ctx, func(sessCtx mongo.SessionContext) error {
-//	    // Your operations here
-//	    return nil
-//	})
-func (c *Client) UseSession(ctx context.Context, fn func(mongo.SessionContext) error) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.closed {
-		return ErrClientClosed
-	}
-
-	return c.client.UseSession(ctx, fn)
-}
-
-// GetDatabase returns a handle to the specified database.
-// If name is empty, returns the default database from config (cached, no lock needed).
-//
-// Example:
-//
-//	db := client.GetDatabase("myapp")
-//	db := client.GetDatabase("") // uses default from config
-func (c *Client) GetDatabase(name string) *mongo.Database {
-	if name == "" {
-		return c.defaultDB
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.client.Database(name)
-}
-
-// GetCollection returns a handle to the specified collection in the default database.
+// getCollection returns a handle to the specified collection in the default database.
 // This method does not acquire locks and is safe to call from within locked contexts.
-//
-// Example:
-//
-//	coll := client.GetCollection("users")
-func (c *Client) GetCollection(collectionName string) *mongo.Collection {
+// This method is unexported and used internally by repositories.
+func (c *client) getCollection(collectionName string) *mongo.Collection {
 	return c.defaultDB.Collection(collectionName)
-}
-
-// GetCollectionFrom returns a handle to the specified collection in the specified database.
-//
-// Example:
-//
-//	coll := client.GetCollectionFrom("analytics", "events")
-func (c *Client) GetCollectionFrom(databaseName, collectionName string) *mongo.Collection {
-	return c.GetDatabase(databaseName).Collection(collectionName)
-}
-
-// GetConfig returns a copy of the client configuration.
-//
-// Example:
-//
-//	cfg := client.GetConfig()
-//	fmt.Println("Connected to:", cfg.URI)
-func (c *Client) GetConfig() Config {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.config
 }
 
 // checkState verifies that the client is not closed.
 // IMPORTANT: This method does NOT acquire any locks. The caller MUST hold c.mu.RLock()
 // before calling this method.
 // Returns ErrClientClosed if the client has been closed.
-func (c *Client) checkState() error {
+func (c *client) checkState() error {
 	if c.closed {
 		return ErrClientClosed
 	}

@@ -17,12 +17,12 @@ import (
 
 // Repository provides a type-safe, collection-specific interface for database operations.
 type Repository[T any] struct {
-	client     *Client
+	client     *client
 	collection string
 }
 
 // NewRepository creates a new type-safe repository for the specified collection.
-func NewRepository[T any](client *Client, collection string) *Repository[T] {
+func NewRepository[T any](client *client, collection string) *Repository[T] {
 	return &Repository[T]{
 		client:     client,
 		collection: collection,
@@ -31,7 +31,7 @@ func NewRepository[T any](client *Client, collection string) *Repository[T] {
 
 // Create inserts a new document and returns its ID.
 func (r *Repository[T]) Create(ctx context.Context, document T) (any, error) {
-	result, err := r.client.InsertOne(ctx, r.collection, document)
+	result, err := r.client.insertOne(ctx, r.collection, document)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (r *Repository[T]) CreateMany(ctx context.Context, documents []T) ([]any, e
 		docs[i] = doc
 	}
 
-	result, err := r.client.InsertMany(ctx, r.collection, docs)
+	result, err := r.client.insertMany(ctx, r.collection, docs)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (r *Repository[T]) CreateMany(ctx context.Context, documents []T) ([]any, e
 // Returns mongo.ErrNoDocuments if not found.
 func (r *Repository[T]) FindByID(ctx context.Context, id any) (*T, error) {
 	var result T
-	err := r.client.FindByID(ctx, r.collection, id, &result)
+	err := r.client.findByID(ctx, r.collection, id, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (r *Repository[T]) FindByID(ctx context.Context, id any) (*T, error) {
 // Returns mongo.ErrNoDocuments if not found.
 func (r *Repository[T]) FindOne(ctx context.Context, filter any, opts ...*options.FindOneOptions) (*T, error) {
 	var result T
-	err := r.client.FindOne(ctx, r.collection, filter, &result, opts...)
+	err := r.client.findOne(ctx, r.collection, filter, &result, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (r *Repository[T]) FindOne(ctx context.Context, filter any, opts ...*option
 // Find finds all documents matching the filter.
 func (r *Repository[T]) Find(ctx context.Context, filter any, opts ...*options.FindOptions) ([]T, error) {
 	var results []T
-	err := r.client.Find(ctx, r.collection, filter, &results, opts...)
+	err := r.client.find(ctx, r.collection, filter, &results, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,42 +92,42 @@ func (r *Repository[T]) FindAll(ctx context.Context, opts ...*options.FindOption
 
 // UpdateByID updates a single document by its _id field.
 func (r *Repository[T]) UpdateByID(ctx context.Context, id any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-	return r.client.UpdateByID(ctx, r.collection, id, update, opts...)
+	return r.client.updateByID(ctx, r.collection, id, update, opts...)
 }
 
 // UpdateOne updates a single document matching the filter.
 func (r *Repository[T]) UpdateOne(ctx context.Context, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-	return r.client.UpdateOne(ctx, r.collection, filter, update, opts...)
+	return r.client.updateOne(ctx, r.collection, filter, update, opts...)
 }
 
 // UpdateMany updates all documents matching the filter.
 func (r *Repository[T]) UpdateMany(ctx context.Context, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-	return r.client.UpdateMany(ctx, r.collection, filter, update, opts...)
+	return r.client.updateMany(ctx, r.collection, filter, update, opts...)
 }
 
 // Upsert updates a document if it exists, or inserts it if it doesn't.
 func (r *Repository[T]) Upsert(ctx context.Context, filter any, update any) (*mongo.UpdateResult, error) {
-	return r.client.UpsertOne(ctx, r.collection, filter, update)
+	return r.client.upsertOne(ctx, r.collection, filter, update)
 }
 
 // DeleteByID deletes a single document by its _id field.
 func (r *Repository[T]) DeleteByID(ctx context.Context, id any) (*mongo.DeleteResult, error) {
-	return r.client.DeleteByID(ctx, r.collection, id)
+	return r.client.deleteByID(ctx, r.collection, id)
 }
 
 // DeleteOne deletes a single document matching the filter.
 func (r *Repository[T]) DeleteOne(ctx context.Context, filter any) (*mongo.DeleteResult, error) {
-	return r.client.DeleteOne(ctx, r.collection, filter)
+	return r.client.deleteOne(ctx, r.collection, filter)
 }
 
 // DeleteMany deletes all documents matching the filter.
 func (r *Repository[T]) DeleteMany(ctx context.Context, filter any) (*mongo.DeleteResult, error) {
-	return r.client.DeleteMany(ctx, r.collection, filter)
+	return r.client.deleteMany(ctx, r.collection, filter)
 }
 
 // Count returns the number of documents matching the filter.
 func (r *Repository[T]) Count(ctx context.Context, filter any, opts ...*options.CountOptions) (int64, error) {
-	return r.client.CountDocuments(ctx, r.collection, filter, opts...)
+	return r.client.countDocuments(ctx, r.collection, filter, opts...)
 }
 
 // CountAll counts all documents in the collection.
@@ -138,12 +138,12 @@ func (r *Repository[T]) CountAll(ctx context.Context, opts ...*options.CountOpti
 // EstimatedCount returns an estimated count using collection metadata.
 // Faster than Count but may be less accurate.
 func (r *Repository[T]) EstimatedCount(ctx context.Context, opts ...*options.EstimatedDocumentCountOptions) (int64, error) {
-	return r.client.EstimatedDocumentCount(ctx, r.collection, opts...)
+	return r.client.estimatedDocumentCount(ctx, r.collection, opts...)
 }
 
 // Exists checks if at least one document matching the filter exists.
 func (r *Repository[T]) Exists(ctx context.Context, filter any) (bool, error) {
-	count, err := r.client.CountDocuments(ctx, r.collection, filter, options.Count().SetLimit(1))
+	count, err := r.client.countDocuments(ctx, r.collection, filter, options.Count().SetLimit(1))
 	if err != nil {
 		return false, err
 	}
@@ -165,7 +165,7 @@ func (r *Repository[T]) ExistsByID(ctx context.Context, id any) (bool, error) {
 // Aggregate executes an aggregation pipeline and returns typed results.
 func (r *Repository[T]) Aggregate(ctx context.Context, pipeline any, opts ...*options.AggregateOptions) ([]T, error) {
 	var results []T
-	err := r.client.Aggregate(ctx, r.collection, pipeline, &results, opts...)
+	err := r.client.aggregate(ctx, r.collection, pipeline, &results, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (r *Repository[T]) Aggregate(ctx context.Context, pipeline any, opts ...*op
 // Drop deletes the entire collection.
 // WARNING: This permanently deletes all documents and indexes.
 func (r *Repository[T]) Drop(ctx context.Context) error {
-	return r.client.DropCollection(ctx, r.collection)
+	return r.client.dropCollection(ctx, r.collection)
 }
 
 // FindWithBuilder finds documents using a QueryBuilder for complex queries.
@@ -219,9 +219,4 @@ func (r *Repository[T]) ExistsWithBuilder(ctx context.Context, qb *QueryBuilder)
 // Collection returns the name of the collection this repository operates on.
 func (r *Repository[T]) Collection() string {
 	return r.collection
-}
-
-// Client returns the underlying MongoDB client for operations outside the repository pattern.
-func (r *Repository[T]) Client() *Client {
-	return r.client
 }

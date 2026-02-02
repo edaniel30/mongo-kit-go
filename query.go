@@ -155,8 +155,8 @@ func (qb *QueryBuilder) Build() (bson.D, *options.FindOptions) {
 	return qb.filter, qb.options
 }
 
-// AndConditions combines multiple QueryBuilders with $and logic.
-func (qb *QueryBuilder) AndConditions(builders ...*QueryBuilder) *QueryBuilder {
+// combineConditions is a helper that combines multiple QueryBuilders with a logical operator.
+func (qb *QueryBuilder) combineConditions(operator string, builders ...*QueryBuilder) *QueryBuilder {
 	if len(builders) == 0 {
 		return qb
 	}
@@ -166,35 +166,30 @@ func (qb *QueryBuilder) AndConditions(builders ...*QueryBuilder) *QueryBuilder {
 		conditions[i] = builder.GetFilter()
 	}
 
-	return qb.And(conditions...)
+	switch operator {
+	case "$and":
+		return qb.And(conditions...)
+	case "$or":
+		return qb.Or(conditions...)
+	case "$nor":
+		return qb.Nor(conditions...)
+	}
+	return qb
+}
+
+// AndConditions combines multiple QueryBuilders with $and logic.
+func (qb *QueryBuilder) AndConditions(builders ...*QueryBuilder) *QueryBuilder {
+	return qb.combineConditions("$and", builders...)
 }
 
 // OrConditions combines multiple QueryBuilders with $or logic.
 func (qb *QueryBuilder) OrConditions(builders ...*QueryBuilder) *QueryBuilder {
-	if len(builders) == 0 {
-		return qb
-	}
-
-	conditions := make([]bson.D, len(builders))
-	for i, builder := range builders {
-		conditions[i] = builder.GetFilter()
-	}
-
-	return qb.Or(conditions...)
+	return qb.combineConditions("$or", builders...)
 }
 
 // NorConditions combines multiple QueryBuilders with $nor logic.
 func (qb *QueryBuilder) NorConditions(builders ...*QueryBuilder) *QueryBuilder {
-	if len(builders) == 0 {
-		return qb
-	}
-
-	conditions := make([]bson.D, len(builders))
-	for i, builder := range builders {
-		conditions[i] = builder.GetFilter()
-	}
-
-	return qb.Nor(conditions...)
+	return qb.combineConditions("$nor", builders...)
 }
 
 // Where adds a raw MongoDB expression to the filter.
