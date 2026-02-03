@@ -59,20 +59,20 @@ mongo-kit-go/
 
 ## Architecture
 
-**Repository-Only Pattern**:
-- `client` type is **unexported** (private)
-- Users interact ONLY through `Repository[T]`
-- No direct database access exposed
+**Repository-Centric Pattern**:
+- `Client` type is **exported** (public) for advanced use cases
+- Users primarily interact through `Repository[T]` (recommended)
+- Direct client access available when needed for custom operations
 - Type safety enforced at compile time
 
 **Key Types**:
 ```go
-// Private - internal only
-type client struct { ... }
+// Public - connection management (exported for advanced use)
+type Client struct { ... }
 
-// Public - user-facing API
+// Public - primary user-facing API (recommended)
 type Repository[T any] struct {
-    client     *client
+    client     *Client
     collection string
 }
 
@@ -92,13 +92,13 @@ type AggregationBuilder struct { ... }
 - Query: `Count()`, `Exists()`, `Aggregate()`
 - Builders: `FindWithBuilder()`, `CountWithBuilder()`
 
-**`client.go`** (134 lines) - **PRIVATE** connection management
-- Unexported `client` type
+**`client.go`** (134 lines) - **PUBLIC** connection management
+- Exported `Client` type (available for advanced use)
 - Thread-safe with `sync.RWMutex`
 - Connection pooling and lifecycle
 
-**`operations.go`** (334 lines) - **PRIVATE** database operations
-- Methods on `*client` (all unexported)
+**`operations.go`** (334 lines) - **INTERNAL** database operations
+- Methods on `*Client` (unexported methods)
 - Called by Repository methods
 - Error wrapping and state checking
 
@@ -256,6 +256,6 @@ go run ./examples/basic_crud/main.go  # Run example
 
 ---
 
-**Last Updated**: 2025-02-02
+**Last Updated**: 2026-02-02
 **Coverage**: 85.8%
-**Version**: Repository-Only Architecture
+**Version**: Repository-Centric Architecture (Client exported)
