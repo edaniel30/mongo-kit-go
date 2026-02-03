@@ -19,7 +19,7 @@ import (
 // insertOne inserts a single document into the specified collection.
 // Returns *mongo.InsertOneResult with the InsertedID field.
 // This method is unexported and used internally by repositories.
-func (c *client) insertOne(ctx context.Context, collection string, document any) (*mongo.InsertOneResult, error) {
+func (c *Client) insertOne(ctx context.Context, collection string, document any) (*mongo.InsertOneResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -38,7 +38,7 @@ func (c *client) insertOne(ctx context.Context, collection string, document any)
 
 // insertMany inserts multiple documents into the specified collection in a single operation.
 // Returns *mongo.InsertManyResult with the InsertedIDs map.
-func (c *client) insertMany(ctx context.Context, collection string, documents []any) (*mongo.InsertManyResult, error) {
+func (c *Client) insertMany(ctx context.Context, collection string, documents []any) (*mongo.InsertManyResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -57,7 +57,7 @@ func (c *client) insertMany(ctx context.Context, collection string, documents []
 
 // findOne finds a single document matching the filter and decodes it into result.
 // Returns mongo.ErrNoDocuments if no document matches.
-func (c *client) findOne(ctx context.Context, collection string, filter any, result any, opts ...*options.FindOneOptions) error {
+func (c *Client) findOne(ctx context.Context, collection string, filter any, result any, opts ...*options.FindOneOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -80,7 +80,7 @@ func (c *client) findOne(ctx context.Context, collection string, filter any, res
 
 // find finds all documents matching the filter and decodes them into results.
 // Empty results is not an error.
-func (c *client) find(ctx context.Context, collection string, filter any, results any, opts ...*options.FindOptions) error {
+func (c *Client) find(ctx context.Context, collection string, filter any, results any, opts ...*options.FindOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -104,7 +104,7 @@ func (c *client) find(ctx context.Context, collection string, filter any, result
 
 // updateOne updates a single document matching the filter.
 // Update must use operators like $set, $inc, etc.
-func (c *client) updateOne(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+func (c *Client) updateOne(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -123,7 +123,7 @@ func (c *client) updateOne(ctx context.Context, collection string, filter any, u
 
 // updateMany updates all documents matching the filter.
 // Update must use operators like $set, $inc, etc.
-func (c *client) updateMany(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+func (c *Client) updateMany(ctx context.Context, collection string, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -142,7 +142,7 @@ func (c *client) updateMany(ctx context.Context, collection string, filter any, 
 
 // deleteOne deletes a single document matching the filter.
 // Returns *mongo.DeleteResult with DeletedCount (0 or 1).
-func (c *client) deleteOne(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
+func (c *Client) deleteOne(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -161,7 +161,7 @@ func (c *client) deleteOne(ctx context.Context, collection string, filter any, o
 
 // deleteMany deletes all documents matching the filter.
 // Use bson.M{} to delete all documents.
-func (c *client) deleteMany(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
+func (c *Client) deleteMany(ctx context.Context, collection string, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -180,7 +180,7 @@ func (c *client) deleteMany(ctx context.Context, collection string, filter any, 
 
 // countDocuments counts the number of documents matching the filter.
 // Accurate but slower than EstimatedDocumentCount.
-func (c *client) countDocuments(ctx context.Context, collection string, filter any, opts ...*options.CountOptions) (int64, error) {
+func (c *Client) countDocuments(ctx context.Context, collection string, filter any, opts ...*options.CountOptions) (int64, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -199,7 +199,7 @@ func (c *client) countDocuments(ctx context.Context, collection string, filter a
 
 // aggregate runs an aggregation pipeline and decodes results.
 // Pipeline must be []bson.M, []bson.D, mongo.Pipeline, or bson.A.
-func (c *client) aggregate(ctx context.Context, collection string, pipeline any, results any, opts ...*options.AggregateOptions) error {
+func (c *Client) aggregate(ctx context.Context, collection string, pipeline any, results any, opts ...*options.AggregateOptions) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -253,7 +253,7 @@ func convertToObjectID(id any, operation string) (primitive.ObjectID, error) {
 
 // findByID finds a single document by its _id field.
 // ID can be string or primitive.ObjectID.
-func (c *client) findByID(ctx context.Context, collection string, id any, result any) error {
+func (c *Client) findByID(ctx context.Context, collection string, id any, result any) error {
 	objID, err := convertToObjectID(id, "find by id")
 	if err != nil {
 		return err
@@ -265,7 +265,7 @@ func (c *client) findByID(ctx context.Context, collection string, id any, result
 
 // updateByID updates a single document by its _id field.
 // ID can be string or primitive.ObjectID.
-func (c *client) updateByID(ctx context.Context, collection string, id any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+func (c *Client) updateByID(ctx context.Context, collection string, id any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
 	objID, err := convertToObjectID(id, "update by id")
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func (c *client) updateByID(ctx context.Context, collection string, id any, upda
 
 // deleteByID deletes a single document by its _id field.
 // ID can be string or primitive.ObjectID.
-func (c *client) deleteByID(ctx context.Context, collection string, id any) (*mongo.DeleteResult, error) {
+func (c *Client) deleteByID(ctx context.Context, collection string, id any) (*mongo.DeleteResult, error) {
 	objID, err := convertToObjectID(id, "delete by id")
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func (c *client) deleteByID(ctx context.Context, collection string, id any) (*mo
 
 // estimatedDocumentCount returns an estimated count using collection metadata.
 // Faster than CountDocuments but less accurate. Does not support filters.
-func (c *client) estimatedDocumentCount(ctx context.Context, collection string, opts ...*options.EstimatedDocumentCountOptions) (int64, error) {
+func (c *Client) estimatedDocumentCount(ctx context.Context, collection string, opts ...*options.EstimatedDocumentCountOptions) (int64, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -308,14 +308,14 @@ func (c *client) estimatedDocumentCount(ctx context.Context, collection string, 
 
 // upsertOne updates a document if it exists, or inserts it if it doesn't.
 // Returns UpsertedID if inserted, or MatchedCount/ModifiedCount if updated.
-func (c *client) upsertOne(ctx context.Context, collection string, filter any, update any) (*mongo.UpdateResult, error) {
+func (c *Client) upsertOne(ctx context.Context, collection string, filter any, update any) (*mongo.UpdateResult, error) {
 	opts := options.Update().SetUpsert(true)
 	return c.updateOne(ctx, collection, filter, update, opts)
 }
 
 // dropCollection drops an entire collection from the database.
 // WARNING: Permanently deletes all documents and indexes.
-func (c *client) dropCollection(ctx context.Context, collection string) error {
+func (c *Client) dropCollection(ctx context.Context, collection string) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 

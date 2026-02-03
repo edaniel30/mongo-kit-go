@@ -11,11 +11,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// client wraps the MongoDB driver client with convenience methods.
+// Client wraps the MongoDB driver client with convenience methods.
 // It provides a simpler API for common operations while maintaining thread-safety.
 // The client is safe for concurrent use across multiple goroutines.
-// Note: This type is unexported. Users should interact with repositories and managers instead.
-type client struct {
+//
+// While Client is exported for advanced use cases, users are encouraged to primarily
+// interact with the database through Repository[T] for type-safe operations.
+type Client struct {
 	config    Config
 	client    *mongo.Client
 	defaultDB *mongo.Database
@@ -48,7 +50,7 @@ type client struct {
 //   - Configuration is invalid
 //   - Connection to MongoDB fails
 //   - Ping verification fails
-func New(cfg Config, opts ...Option) (*client, error) {
+func New(cfg Config, opts ...Option) (*Client, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -88,7 +90,7 @@ func New(cfg Config, opts ...Option) (*client, error) {
 		return nil, newConnectionError(err)
 	}
 
-	return &client{
+	return &Client{
 		config:    cfg,
 		client:    mongoClient,
 		defaultDB: mongoClient.Database(cfg.Database),
@@ -103,7 +105,7 @@ func New(cfg Config, opts ...Option) (*client, error) {
 // Example:
 //
 //	defer client.Close(context.Background())
-func (c *client) Close(ctx context.Context) error {
+func (c *Client) Close(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -118,7 +120,7 @@ func (c *client) Close(ctx context.Context) error {
 // getCollection returns a handle to the specified collection in the default database.
 // This method does not acquire locks and is safe to call from within locked contexts.
 // This method is unexported and used internally by repositories.
-func (c *client) getCollection(collectionName string) *mongo.Collection {
+func (c *Client) getCollection(collectionName string) *mongo.Collection {
 	return c.defaultDB.Collection(collectionName)
 }
 
@@ -126,7 +128,7 @@ func (c *client) getCollection(collectionName string) *mongo.Collection {
 // IMPORTANT: This method does NOT acquire any locks. The caller MUST hold c.mu.RLock()
 // before calling this method.
 // Returns ErrClientClosed if the client has been closed.
-func (c *client) checkState() error {
+func (c *Client) checkState() error {
 	if c.closed {
 		return ErrClientClosed
 	}

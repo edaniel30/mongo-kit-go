@@ -17,12 +17,12 @@ import (
 
 // Repository provides a type-safe, collection-specific interface for database operations.
 type Repository[T any] struct {
-	client     *client
+	client     *Client
 	collection string
 }
 
 // NewRepository creates a new type-safe repository for the specified collection.
-func NewRepository[T any](client *client, collection string) *Repository[T] {
+func NewRepository[T any](client *Client, collection string) *Repository[T] {
 	return &Repository[T]{
 		client:     client,
 		collection: collection,
