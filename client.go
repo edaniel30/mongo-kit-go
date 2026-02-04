@@ -4,6 +4,7 @@ package mongo_kit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -133,4 +134,66 @@ func (c *Client) checkState() error {
 		return ErrClientClosed
 	}
 	return nil
+}
+
+// CreateCollection creates a new collection with optional configuration.
+// If the collection already exists, this is a no-op (no error is returned).
+//
+// Example:
+//
+//	err := client.CreateCollection(ctx, "users", options.CreateCollection().SetCapped(true).SetSizeInBytes(1000000))
+func (c *Client) CreateCollection(ctx context.Context, name string, opts ...*options.CreateCollectionOptions) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.checkState(); err != nil {
+		return err
+	}
+
+	err := c.defaultDB.CreateCollection(ctx, name, opts...)
+	if err != nil {
+		// Check if collection already exists
+		if mongo.IsDuplicateKeyError(err) || err.Error() == "collection already exists" {
+			return nil
+		}
+		return newOperationError("create collection", err)
+	}
+
+	return nil
+}
+
+// CreateIndexes creates multiple indexes on the specified collection.
+// Returns the names of the created indexes.
+//
+// Example:
+//
+//	indexes := []mongo.IndexModel{
+//	    {
+//	        Keys: bson.D{{Key: "email", Value: 1}},
+//	        Options: options.Index().SetUnique(true),
+//	    },
+//	    {
+//	        Keys: bson.D{{Key: "created_at", Value: -1}},
+//	    },
+//	}
+//	names, err := client.CreateIndexes(ctx, "users", indexes)
+func (c *Client) CreateIndexes(ctx context.Context, collection string, indexes []mongo.IndexModel) ([]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.checkState(); err != nil {
+		return nil, err
+	}
+
+	if len(indexes) == 0 {
+		return nil, newOperationError("create indexes", errors.New("indexes array cannot be empty"))
+	}
+
+	coll := c.getCollection(collection)
+	names, err := coll.Indexes().CreateMany(ctx, indexes)
+	if err != nil {
+		return nil, newOperationError("create indexes", err)
+	}
+
+	return names, nil
 }

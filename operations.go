@@ -330,4 +330,3 @@ func (c *Client) dropCollection(ctx context.Context, collection string) error {
 
 	return nil
 }
-
