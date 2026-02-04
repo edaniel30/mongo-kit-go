@@ -152,8 +152,9 @@ func (c *Client) CreateCollection(ctx context.Context, name string, opts ...*opt
 
 	err := c.defaultDB.CreateCollection(ctx, name, opts...)
 	if err != nil {
-		// Check if collection already exists
-		if mongo.IsDuplicateKeyError(err) || err.Error() == "collection already exists" {
+		// Check if collection already exists (MongoDB error code 48: NamespaceExists)
+		var cmdErr mongo.CommandError
+		if errors.As(err, &cmdErr) && cmdErr.Code == 48 {
 			return nil
 		}
 		return newOperationError("create collection", err)
@@ -186,7 +187,7 @@ func (c *Client) CreateIndexes(ctx context.Context, collection string, indexes [
 	}
 
 	if len(indexes) == 0 {
-		return nil, newOperationError("create indexes", errors.New("indexes array cannot be empty"))
+		return nil, newOperationError("create indexes", errors.New("at least one index model must be provided"))
 	}
 
 	coll := c.getCollection(collection)

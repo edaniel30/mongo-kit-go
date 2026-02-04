@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	testhelpers "github.com/edaniel30/mongo-kit-go/testing"
 )
@@ -392,5 +393,147 @@ func TestRepository_Integration(t *testing.T) {
 		exists, err = repo.ExistsWithBuilder(ctx, qb2)
 		require.NoError(t, err)
 		assert.False(t, exists)
+	})
+}
+
+func TestClient_CreateCollection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	container := testhelpers.SetupMongoContainer(t)
+	defer container.Teardown(t)
+
+	cfg := DefaultConfig()
+	WithURI(container.URI)(&cfg)
+	WithDatabase("testdb")(&cfg)
+
+	client, err := New(cfg)
+	require.NoError(t, err)
+	defer func() { _ = client.Close(context.Background()) }()
+
+	ctx := context.Background()
+
+	t.Run("CreateCollection creates new collection", func(t *testing.T) {
+		collName := "test_collection_new"
+		err := client.CreateCollection(ctx, collName)
+		require.NoError(t, err)
+
+		// Verify collection was created by trying to use it
+		repo := NewRepository[User](client, collName)
+		_, err = repo.Create(ctx, User{Name: "Test", Email: "test@test.com", Age: 25, Active: true})
+		require.NoError(t, err)
+	})
+
+	t.Run("CreateCollection is idempotent", func(t *testing.T) {
+		collName := "test_collection_idempotent"
+
+		// Create first time
+		err := client.CreateCollection(ctx, collName)
+		require.NoError(t, err)
+
+		// Create again - should not error
+		err = client.CreateCollection(ctx, collName)
+		require.NoError(t, err)
+	})
+
+	t.Run("CreateCollection with options", func(t *testing.T) {
+		collName := "test_collection_with_options"
+
+		// Create capped collection
+		opts := options.CreateCollection().SetCapped(true).SetSizeInBytes(1000000)
+		err := client.CreateCollection(ctx, collName, opts)
+		require.NoError(t, err)
+
+		// Verify it works
+		repo := NewRepository[User](client, collName)
+		_, err = repo.Create(ctx, User{Name: "Test", Email: "test@test.com", Age: 25, Active: true})
+		require.NoError(t, err)
+	})
+}
+
+func TestClient_CreateIndexes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	container := testhelpers.SetupMongoContainer(t)
+	defer container.Teardown(t)
+
+	cfg := DefaultConfig()
+	WithURI(container.URI)(&cfg)
+	WithDatabase("testdb")(&cfg)
+
+	client, err := New(cfg)
+	require.NoError(t, err)
+	defer func() { _ = client.Close(context.Background()) }()
+
+	ctx := context.Background()
+	collName := "test_indexes"
+
+	t.Run("CreateIndexes creates multiple indexes", func(t *testing.T) {
+		// Create collection first
+		err := client.CreateCollection(ctx, collName)
+		require.NoError(t, err)
+
+		// Create indexes
+		indexes := []mongo.IndexModel{
+			{
+				Keys:    bson.D{{Key: "email", Value: 1}},
+				Options: options.Index().SetUnique(true).SetName("email_unique_idx"),
+			},
+			{
+				Keys:    bson.D{{Key: "age", Value: 1}},
+				Options: options.Index().SetName("age_idx"),
+			},
+			{
+				Keys:    bson.D{{Key: "name", Value: 1}, {Key: "active", Value: 1}},
+				Options: options.Index().SetName("name_active_compound_idx"),
+			},
+		}
+
+		names, err := client.CreateIndexes(ctx, collName, indexes)
+		require.NoError(t, err)
+		assert.Len(t, names, 3)
+		assert.Contains(t, names, "email_unique_idx")
+		assert.Contains(t, names, "age_idx")
+		assert.Contains(t, names, "name_active_compound_idx")
+
+		// Test unique constraint works
+		repo := NewRepository[User](client, collName)
+		_, err = repo.Create(ctx, User{Name: "John", Email: "unique@test.com", Age: 30, Active: true})
+		require.NoError(t, err)
+
+		// Try to insert duplicate email - should fail
+		_, err = repo.Create(ctx, User{Name: "Jane", Email: "unique@test.com", Age: 25, Active: false})
+		assert.Error(t, err)
+		assert.True(t, mongo.IsDuplicateKeyError(err))
+	})
+
+	t.Run("CreateIndexes with empty array returns error", func(t *testing.T) {
+		indexes := []mongo.IndexModel{}
+		_, err := client.CreateIndexes(ctx, collName, indexes)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one index model must be provided")
+	})
+
+	t.Run("CreateIndexes on non-existent collection creates it implicitly", func(t *testing.T) {
+		newColl := "test_indexes_implicit"
+
+		indexes := []mongo.IndexModel{
+			{
+				Keys:    bson.D{{Key: "field1", Value: 1}},
+				Options: options.Index().SetName("field1_idx"),
+			},
+		}
+
+		names, err := client.CreateIndexes(ctx, newColl, indexes)
+		require.NoError(t, err)
+		assert.Len(t, names, 1)
+
+		// Verify collection exists by using it
+		repo := NewRepository[User](client, newColl)
+		_, err = repo.Create(ctx, User{Name: "Test", Email: "test@test.com", Age: 25, Active: true})
+		require.NoError(t, err)
 	})
 }
