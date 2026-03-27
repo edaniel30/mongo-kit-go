@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -116,6 +117,66 @@ func (c *Client) Close(ctx context.Context) error {
 
 	c.closed = true
 	return c.client.Disconnect(ctx)
+}
+
+// EnsureUser checks if a MongoDB user exists on the given database and creates it
+// if it doesn't. The user is granted the specified roles on that database.
+//
+// This is an idempotent operation: calling it multiple times with the same parameters
+// is safe and will not fail if the user already exists.
+//
+// The client must be connected with admin privileges to create users.
+//
+// Example:
+//
+//	roles := []string{"readWrite"}
+//	err := client.EnsureUser(ctx, "myapp", "appuser", "secret", roles)
+func (c *Client) EnsureUser(ctx context.Context, database, username, password string, roles []string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.checkState(); err != nil {
+		return err
+	}
+
+	db := c.client.Database(database)
+
+	// Check if user already exists.
+	result := db.RunCommand(ctx, bson.D{{Key: "usersInfo", Value: username}})
+	if result.Err() != nil {
+		return newOperationError("ensure user: usersInfo", result.Err())
+	}
+
+	var info struct {
+		Users []bson.M `bson:"users"`
+	}
+	if err := result.Decode(&info); err != nil {
+		return newOperationError("ensure user: decode", err)
+	}
+
+	if len(info.Users) > 0 {
+		return nil
+	}
+
+	// Build roles array.
+	rolesDocs := make(bson.A, 0, len(roles))
+	for _, role := range roles {
+		rolesDocs = append(rolesDocs, bson.D{
+			{Key: "role", Value: role},
+			{Key: "db", Value: database},
+		})
+	}
+
+	cmd := bson.D{
+		{Key: "createUser", Value: username},
+		{Key: "pwd", Value: password},
+		{Key: "roles", Value: rolesDocs},
+	}
+	if err := db.RunCommand(ctx, cmd).Err(); err != nil {
+		return newOperationError(fmt.Sprintf("ensure user: createUser %q", username), err)
+	}
+
+	return nil
 }
 
 // getCollection returns a handle to the specified collection in the default database.
