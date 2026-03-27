@@ -10,7 +10,7 @@ repos:
       - id: go-test
         name: Run Go tests
         entry: make
-        args: ["test"]
+        args: ["test-coverage"]
         language: system
         pass_filenames: false
         stages: [pre-commit]
