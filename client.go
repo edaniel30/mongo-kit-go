@@ -119,11 +119,11 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.client.Disconnect(ctx)
 }
 
-// EnsureUser checks if a MongoDB user exists on the given database and creates it
-// if it doesn't. The user is granted the specified roles on that database.
-//
-// This is an idempotent operation: calling it multiple times with the same parameters
-// is safe and will not fail if the user already exists.
+// EnsureUser ensures a MongoDB user exists on the given database.
+// If the user does not exist it is created with the provided password and roles.
+// If the user already exists the call is a no-op: password and roles are NOT
+// updated. Use the MongoDB updateUser / grantRolesToUser commands directly if
+// you need to reconcile credentials on an existing user.
 //
 // The client must be connected with admin privileges to create users.
 //
@@ -139,24 +139,11 @@ func (c *Client) EnsureUser(ctx context.Context, database, username, password st
 		return err
 	}
 
+	if len(roles) == 0 {
+		return newOperationError("ensure user", errors.New("at least one role must be provided"))
+	}
+
 	db := c.client.Database(database)
-
-	// Check if user already exists.
-	result := db.RunCommand(ctx, bson.D{{Key: "usersInfo", Value: username}})
-	if result.Err() != nil {
-		return newOperationError("ensure user: usersInfo", result.Err())
-	}
-
-	var info struct {
-		Users []bson.M `bson:"users"`
-	}
-	if err := result.Decode(&info); err != nil {
-		return newOperationError("ensure user: decode", err)
-	}
-
-	if len(info.Users) > 0 {
-		return nil
-	}
 
 	// Build roles array.
 	rolesDocs := make(bson.A, 0, len(roles))
@@ -173,6 +160,11 @@ func (c *Client) EnsureUser(ctx context.Context, database, username, password st
 		{Key: "roles", Value: rolesDocs},
 	}
 	if err := db.RunCommand(ctx, cmd).Err(); err != nil {
+		// MongoDB error code 51003: user already exists — treat as success for idempotency.
+		var cmdErr mongo.CommandError
+		if errors.As(err, &cmdErr) && cmdErr.Code == 51003 {
+			return nil
+		}
 		return newOperationError(fmt.Sprintf("ensure user: createUser %q", username), err)
 	}
 

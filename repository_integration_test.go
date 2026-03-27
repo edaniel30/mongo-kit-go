@@ -575,6 +575,13 @@ func TestClient_EnsureUser(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("EnsureUser returns error when roles is empty", func(t *testing.T) {
+		err := client.EnsureUser(ctx, "testdb", "noroleuser", "secret", []string{})
+		require.Error(t, err)
+		var opErr *OperationError
+		assert.ErrorAs(t, err, &opErr)
+	})
+
 	t.Run("EnsureUser returns error when client is closed", func(t *testing.T) {
 		closedClient, err := New(cfg)
 		require.NoError(t, err)
