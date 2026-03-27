@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -116,6 +117,58 @@ func (c *Client) Close(ctx context.Context) error {
 
 	c.closed = true
 	return c.client.Disconnect(ctx)
+}
+
+// EnsureUser ensures a MongoDB user exists on the given database.
+// If the user does not exist it is created with the provided password and roles.
+// If the user already exists the call is a no-op: password and roles are NOT
+// updated. Use the MongoDB updateUser / grantRolesToUser commands directly if
+// you need to reconcile credentials on an existing user.
+//
+// The client must be connected with admin privileges to create users.
+//
+// Example:
+//
+//	roles := []string{"readWrite"}
+//	err := client.EnsureUser(ctx, "myapp", "appuser", "secret", roles)
+func (c *Client) EnsureUser(ctx context.Context, database, username, password string, roles []string) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.checkState(); err != nil {
+		return err
+	}
+
+	if len(roles) == 0 {
+		return newOperationError("ensure user", errors.New("at least one role must be provided"))
+	}
+
+	db := c.client.Database(database)
+
+	// Build roles array.
+	rolesDocs := make(bson.A, 0, len(roles))
+	for _, role := range roles {
+		rolesDocs = append(rolesDocs, bson.D{
+			{Key: "role", Value: role},
+			{Key: "db", Value: database},
+		})
+	}
+
+	cmd := bson.D{
+		{Key: "createUser", Value: username},
+		{Key: "pwd", Value: password},
+		{Key: "roles", Value: rolesDocs},
+	}
+	if err := db.RunCommand(ctx, cmd).Err(); err != nil {
+		// MongoDB error code 51003: user already exists — treat as success for idempotency.
+		var cmdErr mongo.CommandError
+		if errors.As(err, &cmdErr) && cmdErr.Code == 51003 {
+			return nil
+		}
+		return newOperationError(fmt.Sprintf("ensure user: createUser %q", username), err)
+	}
+
+	return nil
 }
 
 // getCollection returns a handle to the specified collection in the default database.

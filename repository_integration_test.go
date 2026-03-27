@@ -537,3 +537,57 @@ func TestClient_CreateIndexes(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestClient_EnsureUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	container := testhelpers.SetupMongoContainer(t)
+	defer container.Teardown(t)
+
+	cfg := DefaultConfig()
+	WithURI(container.URI)(&cfg)
+	WithDatabase("testdb")(&cfg)
+
+	client, err := New(cfg)
+	require.NoError(t, err)
+	defer func() { _ = client.Close(context.Background()) }()
+
+	ctx := context.Background()
+
+	t.Run("EnsureUser creates user when it does not exist", func(t *testing.T) {
+		err := client.EnsureUser(ctx, "testdb", "newuser", "secret", []string{"readWrite"})
+		require.NoError(t, err)
+	})
+
+	t.Run("EnsureUser is idempotent", func(t *testing.T) {
+		err := client.EnsureUser(ctx, "testdb", "idempotentuser", "secret", []string{"readWrite"})
+		require.NoError(t, err)
+
+		// Call again — should not return an error
+		err = client.EnsureUser(ctx, "testdb", "idempotentuser", "secret", []string{"readWrite"})
+		require.NoError(t, err)
+	})
+
+	t.Run("EnsureUser with multiple roles", func(t *testing.T) {
+		err := client.EnsureUser(ctx, "testdb", "multiroleuser", "secret", []string{"readWrite", "dbAdmin"})
+		require.NoError(t, err)
+	})
+
+	t.Run("EnsureUser returns error when roles is empty", func(t *testing.T) {
+		err := client.EnsureUser(ctx, "testdb", "noroleuser", "secret", []string{})
+		require.Error(t, err)
+		var opErr *OperationError
+		assert.ErrorAs(t, err, &opErr)
+	})
+
+	t.Run("EnsureUser returns error when client is closed", func(t *testing.T) {
+		closedClient, err := New(cfg)
+		require.NoError(t, err)
+		_ = closedClient.Close(ctx)
+
+		err = closedClient.EnsureUser(ctx, "testdb", "anyuser", "secret", []string{"readWrite"})
+		require.ErrorIs(t, err, ErrClientClosed)
+	})
+}
