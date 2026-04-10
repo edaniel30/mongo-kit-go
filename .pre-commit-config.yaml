@@ -7,6 +7,21 @@ repos:
 
   - repo: local
     hooks:
+      - id: go-vuln-check
+        name: Run govulncheck
+        entry: bash
+        args:
+          - -c
+          - |
+            govulncheck ./... 2>&1; code=$?
+            # Exit code 3 means vulnerabilities found. Fail only if any have a fix available.
+            if [ $code -eq 3 ]; then
+              govulncheck ./... 2>&1 | grep -v "Fixed in: N/A" | grep -q "Fixed in:" && exit 1 || exit 0
+            fi
+            exit $code
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
       - id: go-test
         name: Run Go tests
         entry: make

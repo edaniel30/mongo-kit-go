@@ -1,4 +1,4 @@
-## Description
+# Description
 
 Please include a summary of the changes and which issue is fixed. Include relevant motivation and context.
 
@@ -13,8 +13,6 @@ Please delete options that are not relevant.
 
 ## Changes Made
 
-Provide a detailed description of the changes:
-
 - Change 1
 - Change 2
 - Change 3
@@ -27,7 +25,6 @@ Please describe the tests that you ran to verify your changes.
 - [ ] Integration tests
 - [ ] Manual testing
 - [ ] Benchmark tests
-
 
 ## Additional Notes
 

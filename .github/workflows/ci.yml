@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
 
 env:
-  GO_VERSION: "1.25"
+  GO_VERSION: "1.26"
   COVERAGE_THRESHOLD: 85
 
 jobs:
@@ -75,4 +75,19 @@ jobs:
       - name: Run govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          set +e
+          output=$(govulncheck ./... 2>&1)
+          code=$?
+          set -e
+          echo "$output"
+          if [ $code -eq 3 ]; then
+            if echo "$output" | grep -v "Fixed in: N/A" | grep -q "Fixed in:"; then
+              echo "::error::Vulnerabilities with available fixes found. Please update affected dependencies."
+              exit 1
+            else
+              vulns=$(echo "$output" | grep "Vulnerability #" | sed 's/Vulnerability //')
+              echo "::warning::Vulnerabilities found with no fix available yet: $vulns"
+              exit 0
+            fi
+          fi
+          exit $code
