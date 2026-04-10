@@ -171,6 +171,30 @@ func (c *Client) EnsureUser(ctx context.Context, database, username, password st
 	return nil
 }
 
+// RunCommand executes a raw MongoDB command against the specified database and
+// decodes the result into result. Use this for admin commands like usersInfo,
+// createUser, updateUser, dropUser that are not covered by the repository API.
+//
+// Example:
+//
+//	var res bson.M
+//	err := client.RunCommand(ctx, "admin", bson.D{{Key: "usersInfo", Value: 1}}, &res)
+func (c *Client) RunCommand(ctx context.Context, database string, command, result any) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.checkState(); err != nil {
+		return err
+	}
+
+	err := c.client.Database(database).RunCommand(ctx, command).Decode(result)
+	if err != nil {
+		return newOperationError(fmt.Sprintf("run command on database %s", database), err)
+	}
+
+	return nil
+}
+
 // getCollection returns a handle to the specified collection in the default database.
 // This method does not acquire locks and is safe to call from within locked contexts.
 // This method is unexported and used internally by repositories.

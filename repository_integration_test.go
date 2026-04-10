@@ -538,6 +538,72 @@ func TestClient_CreateIndexes(t *testing.T) {
 	})
 }
 
+func TestClient_RunCommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	container := testhelpers.SetupMongoContainer(t)
+	defer container.Teardown(t)
+
+	cfg := DefaultConfig()
+	WithURI(container.URI)(&cfg)
+	WithDatabase("testdb")(&cfg)
+
+	client, err := New(cfg)
+	require.NoError(t, err)
+	defer func() { _ = client.Close(context.Background()) }()
+
+	ctx := context.Background()
+
+	t.Run("RunCommand executes raw command successfully", func(t *testing.T) {
+		var result bson.M
+		err := client.RunCommand(ctx, "admin", bson.D{{Key: "ping", Value: 1}}, &result)
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, result["ok"])
+	})
+
+	t.Run("RunCommand returns error when client is closed", func(t *testing.T) {
+		closedClient, err := New(cfg)
+		require.NoError(t, err)
+		_ = closedClient.Close(ctx)
+
+		var result bson.M
+		err = closedClient.RunCommand(ctx, "admin", bson.D{{Key: "ping", Value: 1}}, &result)
+		require.ErrorIs(t, err, ErrClientClosed)
+	})
+}
+
+func TestConvertToObjectID(t *testing.T) {
+	t.Run("returns error for unsupported type", func(t *testing.T) {
+		_, err := convertToObjectID(12345, "test op")
+		require.Error(t, err)
+		var opErr *OperationError
+		assert.ErrorAs(t, err, &opErr)
+	})
+}
+
+func TestClient_CreateCollection_ClosedClient(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	container := testhelpers.SetupMongoContainer(t)
+	defer container.Teardown(t)
+
+	cfg := DefaultConfig()
+	WithURI(container.URI)(&cfg)
+	WithDatabase("testdb")(&cfg)
+
+	client, err := New(cfg)
+	require.NoError(t, err)
+	ctx := context.Background()
+	_ = client.Close(ctx)
+
+	err = client.CreateCollection(ctx, "anycollection")
+	require.ErrorIs(t, err, ErrClientClosed)
+}
+
 func TestClient_EnsureUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
