@@ -330,7 +330,7 @@ func (c *Client) bulkWrite(ctx context.Context, collection string, models []mong
 	coll := c.getCollection(collection)
 	result, err := coll.BulkWrite(ctx, models, opts...)
 	if err != nil {
-		return nil, newOperationError("bulk write", err)
+		return result, newOperationError("bulk write", err)
 	}
 
 	return result, nil

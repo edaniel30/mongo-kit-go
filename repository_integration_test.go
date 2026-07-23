@@ -171,12 +171,16 @@ func TestRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("BulkWrite applies independent updates in one round trip", func(t *testing.T) {
-		_ = repo.Drop(ctx)
-		id1, _ := repo.Create(ctx, User{Name: "Bulk1", Email: "b1@test.com", Age: 20, Active: false})
-		id2, _ := repo.Create(ctx, User{Name: "Bulk2", Email: "b2@test.com", Age: 21, Active: false})
+		require.NoError(t, repo.Drop(ctx))
+		id1, err := repo.Create(ctx, User{Name: "Bulk1", Email: "b1@test.com", Age: 20, Active: false})
+		require.NoError(t, err)
+		id2, err := repo.Create(ctx, User{Name: "Bulk2", Email: "b2@test.com", Age: 21, Active: false})
+		require.NoError(t, err)
 
-		objID1 := id1.(primitive.ObjectID)
-		objID2 := id2.(primitive.ObjectID)
+		objID1, ok := id1.(primitive.ObjectID)
+		require.True(t, ok)
+		objID2, ok := id2.(primitive.ObjectID)
+		require.True(t, ok)
 
 		models := []mongo.WriteModel{
 			mongo.NewUpdateOneModel().
@@ -192,31 +196,41 @@ func TestRepository_Integration(t *testing.T) {
 		assert.Equal(t, int64(2), result.MatchedCount)
 		assert.Equal(t, int64(2), result.ModifiedCount)
 
-		updated1, _ := repo.FindByID(ctx, objID1)
-		updated2, _ := repo.FindByID(ctx, objID2)
+		updated1, err := repo.FindByID(ctx, objID1)
+		require.NoError(t, err)
+		updated2, err := repo.FindByID(ctx, objID2)
+		require.NoError(t, err)
 		assert.Equal(t, 99, updated1.Age)
 		assert.Equal(t, 100, updated2.Age)
 	})
 
-	t.Run("BulkWrite is unordered by default, so one non-matching filter doesn't block the rest", func(t *testing.T) {
-		_ = repo.Drop(ctx)
-		id, _ := repo.Create(ctx, User{Name: "BulkPartial", Email: "bp@test.com", Age: 20, Active: false})
-		objID := id.(primitive.ObjectID)
+	t.Run("BulkWrite is unordered by default, so a failing operation doesn't block the rest", func(t *testing.T) {
+		require.NoError(t, repo.Drop(ctx))
+		existingID, err := repo.Create(ctx, User{Name: "BulkExisting", Email: "be1@test.com", Age: 20, Active: false})
+		require.NoError(t, err)
+		otherID, err := repo.Create(ctx, User{Name: "BulkOther", Email: "be2@test.com", Age: 21, Active: false})
+		require.NoError(t, err)
+
+		objID, ok := existingID.(primitive.ObjectID)
+		require.True(t, ok)
+		otherObjID, ok := otherID.(primitive.ObjectID)
+		require.True(t, ok)
 
 		models := []mongo.WriteModel{
+			mongo.NewInsertOneModel().
+				SetDocument(bson.M{"_id": objID, "name": "Duplicate", "email": "dup@test.com", "age": 1, "active": false}), // duplicate _id -> write error
 			mongo.NewUpdateOneModel().
-				SetFilter(bson.M{"_id": primitive.NewObjectID()}). // doesn't match any document
-				SetUpdate(bson.M{"$set": bson.M{"age": 1}}),
-			mongo.NewUpdateOneModel().
-				SetFilter(bson.M{"_id": objID}).
+				SetFilter(bson.M{"_id": otherObjID}).
 				SetUpdate(bson.M{"$set": bson.M{"age": 42}}),
 		}
 
 		result, err := repo.BulkWrite(ctx, models)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.NotNil(t, result)
 		assert.Equal(t, int64(1), result.MatchedCount)
 
-		updated, _ := repo.FindByID(ctx, objID)
+		updated, err := repo.FindByID(ctx, otherObjID)
+		require.NoError(t, err)
 		assert.Equal(t, 42, updated.Age)
 	})
 
