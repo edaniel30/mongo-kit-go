@@ -105,6 +105,20 @@ func (r *Repository[T]) UpdateMany(ctx context.Context, filter any, update any, 
 	return r.client.updateMany(ctx, r.collection, filter, update, opts...)
 }
 
+// BulkWrite executes multiple write models (insert/update/delete, one per
+// document) against the collection in a single round trip to MongoDB,
+// instead of issuing one operation per document. Build models with
+// mongo.NewUpdateOneModel(), mongo.NewInsertOneModel(), etc. Defaults to
+// unordered execution (SetOrdered(false)) unless opts overrides it, so one
+// failing operation doesn't stop the rest from applying - pass an explicit
+// *options.BulkWriteOptions to change this.
+func (r *Repository[T]) BulkWrite(ctx context.Context, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+	if len(opts) == 0 {
+		opts = []*options.BulkWriteOptions{options.BulkWrite().SetOrdered(false)}
+	}
+	return r.client.bulkWrite(ctx, r.collection, models, opts...)
+}
+
 // Upsert updates a document if it exists, or inserts it if it doesn't.
 func (r *Repository[T]) Upsert(ctx context.Context, filter any, update any) (*mongo.UpdateResult, error) {
 	return r.client.upsertOne(ctx, r.collection, filter, update)
