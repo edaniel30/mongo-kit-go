@@ -313,6 +313,29 @@ func (c *Client) upsertOne(ctx context.Context, collection string, filter any, u
 	return c.updateOne(ctx, collection, filter, update, opts)
 }
 
+// bulkWrite executes multiple write models (inserts, updates, deletes)
+// against a collection in a single round trip to MongoDB.
+func (c *Client) bulkWrite(ctx context.Context, collection string, models []mongo.WriteModel, opts ...*options.BulkWriteOptions) (*mongo.BulkWriteResult, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if err := c.checkState(); err != nil {
+		return nil, err
+	}
+
+	if len(models) == 0 {
+		return nil, newOperationError("bulk write", errors.New("at least one write model must be provided"))
+	}
+
+	coll := c.getCollection(collection)
+	result, err := coll.BulkWrite(ctx, models, opts...)
+	if err != nil {
+		return result, newOperationError("bulk write", err)
+	}
+
+	return result, nil
+}
+
 // dropCollection drops an entire collection from the database.
 // WARNING: Permanently deletes all documents and indexes.
 func (c *Client) dropCollection(ctx context.Context, collection string) error {
