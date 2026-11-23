@@ -23,6 +23,7 @@ type Client struct {
 	config    Config
 	client    *mongo.Client
 	defaultDB *mongo.Database
+	cipher    *fieldCipher // nil when encryption is disabled
 	mu        sync.RWMutex
 	closed    bool
 }
@@ -31,9 +32,11 @@ type Client struct {
 // Configuration uses the functional options pattern for flexibility.
 //
 // The client will automatically:
-//   - Validate the configuration
+//   - Validate the configuration (after applying the options)
+//   - Use the database in the URI path when Database is empty
 //   - Connect to MongoDB
 //   - Verify the connection with a ping
+//   - With WithEncryptionKey, verify the key against the database
 //
 // Example:
 //
@@ -52,13 +55,24 @@ type Client struct {
 //   - Configuration is invalid
 //   - Connection to MongoDB fails
 //   - Ping verification fails
+//   - With WithEncryptionKey: the key does not match the database's
+//     (ErrEncryptionKeyMismatch) or the check value cannot be written
 func New(cfg Config, opts ...Option) (*Client, error) {
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	cfg.resolveDatabase()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 
-	for _, opt := range opts {
-		opt(&cfg)
+	var cipher *fieldCipher
+	if cfg.EncryptionKey != "" {
+		var err error
+		if cipher, err = newFieldCipher(cfg.EncryptionKey); err != nil {
+			return nil, newConfigFieldError("EncryptionKey", err.Error())
+		}
 	}
 
 	var clientOpts *options.ClientOptions
@@ -92,12 +106,25 @@ func New(cfg Config, opts ...Option) (*Client, error) {
 		return nil, newConnectionError(err)
 	}
 
-	return &Client{
+	client := &Client{
 		config:    cfg,
 		client:    mongoClient,
 		defaultDB: mongoClient.Database(cfg.Database),
+		cipher:    cipher,
 		closed:    false,
-	}, nil
+	}
+
+	if cipher != nil {
+		ctx, cancel = context.WithTimeout(context.Background(), cfg.Timeout)
+		defer cancel()
+
+		if err := client.verifyEncryptionKey(ctx); err != nil {
+			_ = mongoClient.Disconnect(context.Background())
+			return nil, err
+		}
+	}
+
+	return client, nil
 }
 
 // Close closes the MongoDB client connection gracefully.

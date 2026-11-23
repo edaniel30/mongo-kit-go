@@ -107,12 +107,18 @@ type AggregationBuilder struct { ... }
 - `UpdateBuilder` - update operations
 - `AggregationBuilder` - aggregation pipelines
 
-**`config.go`** (142 lines) - Configuration
-- Functional options pattern
-- `WithURI()`, `WithDatabase()`, `WithTimeout()`
+**`config.go`** - Configuration
+- Functional options pattern, validated after the options are applied
+- `WithURI()`, `WithDatabase()` (empty = database from the URI path), `WithTimeout()`, `WithEncryptionKey()`
+
+**`encryption.go`** - Field encryption (AES-256-GCM)
+- `Client.Encrypt()` / `Client.Decrypt()` / `Client.EncryptionEnabled()`
+- Key check on `New`: check value in the `_mongokit` collection; wrong key → `ErrEncryptionKeyMismatch`
+- Never change `encryptionCheckPlaintext` or the ciphertext format: databases already store them
 
 **`errors.go`** (83 lines) - Custom errors
 - `ConfigError`, `ConnectionError`, `OperationError`
+- Sentinels: `ErrClientClosed`, `ErrEncryptionDisabled`, `ErrEncryptionKeyMismatch`, `ErrDecryptionFailed`
 - Proper error wrapping with `Unwrap()`
 
 ## Key Patterns

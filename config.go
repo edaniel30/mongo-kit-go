@@ -1,16 +1,22 @@
 package mongo_kit
 
 import (
+	"encoding/hex"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/connstring"
 )
 
 // Config holds the MongoDB client configuration.
 // Use DefaultConfig() to get sensible defaults, then customize with Option functions.
 type Config struct {
 	URI      string // MongoDB connection URI (required)
-	Database string // Default database name (required)
+	Database string // Default database name (required; when empty, the database in the URI path is used)
+
+	// EncryptionKey enables field encryption (Client.Encrypt / Client.Decrypt):
+	// an AES-256 key as 64 hex characters. Empty disables it.
+	EncryptionKey string
 
 	MaxPoolSize   uint64                 // Maximum number of connections in the connection pool (default: 100)
 	Timeout       time.Duration          // Default timeout for all operations (default: 10s)
@@ -119,6 +125,39 @@ func WithClientOptions(opts *options.ClientOptions) Option {
 	}
 }
 
+// WithEncryptionKey enables encryption with an AES-256-GCM key given as 64 hex
+// characters (32 bytes), e.g. the output of `openssl rand -hex 32`.
+//
+// With a key, New verifies it against the database before returning: the
+// first client to connect stores a check value encrypted with the key in the
+// "_mongokit" collection, and every later client must decrypt it. A client
+// with another key fails with ErrEncryptionKeyMismatch instead of writing
+// data nobody else can read. The database user needs write access to create
+// that collection.
+//
+// Example:
+//
+//	mongo_kit.WithEncryptionKey(os.Getenv("MONGODB_ENCRYPTION_KEY"))
+func WithEncryptionKey(key string) Option {
+	return func(c *Config) {
+		c.EncryptionKey = key
+	}
+}
+
+// resolveDatabase fills an empty Database with the database in the URI path
+// ("mongodb://user:pass@host:27017/myapp?authSource=myapp" -> "myapp"). The
+// driver itself never selects a database from the URI (the path is only the
+// default authentication database), so this saves repeating it. An explicit
+// Database always wins.
+func (c *Config) resolveDatabase() {
+	if c.Database != "" || c.URI == "" {
+		return
+	}
+	if cs, err := connstring.Parse(c.URI); err == nil {
+		c.Database = cs.Database
+	}
+}
+
 // Validate checks if the configuration is valid.
 // Returns a ConfigError if any required field is missing or invalid.
 func (c *Config) validate() error {
@@ -127,7 +166,7 @@ func (c *Config) validate() error {
 	}
 
 	if c.Database == "" {
-		return newConfigFieldError("Database", "is required")
+		return newConfigFieldError("Database", "is required (set it, or put the database in the URI path)")
 	}
 
 	if c.MaxPoolSize == 0 {
@@ -136,6 +175,13 @@ func (c *Config) validate() error {
 
 	if c.Timeout <= 0 {
 		return newConfigFieldError("Timeout", "must be greater than 0")
+	}
+
+	if c.EncryptionKey != "" {
+		key, err := hex.DecodeString(c.EncryptionKey)
+		if err != nil || len(key) != encryptionKeySize {
+			return newConfigFieldError("EncryptionKey", "must be 64 hex characters (32 bytes)")
+		}
 	}
 
 	return nil
