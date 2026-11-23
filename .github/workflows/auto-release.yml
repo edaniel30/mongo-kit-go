@@ -19,13 +19,18 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # The workflow's own GITHUB_TOKEN creates the tag and the release and deletes
+    # the merged branch: no personal token to rotate. Tags and releases created
+    # with it do not trigger other workflows (none listen to them today).
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: main  # Ensure we're on main
-          token: ${{ secrets.TOKEN_FOR_RELEASES }}  # Use custom token for git operations
 
       - name: Get latest version and determine new version
         id: get_version_info
@@ -85,7 +90,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN_FOR_RELEASES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.get_version_info.outputs.tag_name }}
           name: ${{ steps.get_version_info.outputs.release_name }}
