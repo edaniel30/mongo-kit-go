@@ -66,10 +66,31 @@ userRepo.DeleteByID(ctx, id)
 | Option | Description | Default |
 |--------|-------------|---------|
 | `WithURI(uri)` | MongoDB connection URI | `mongodb://localhost:27017` |
-| `WithDatabase(name)` | Default database name | `default` |
+| `WithDatabase(name)` | Default database name; `""` uses the database in the URI path | `default` |
 | `WithMaxPoolSize(size)` | Max connections | `100` |
 | `WithTimeout(duration)` | Operation timeout | `10s` |
 | `WithClientOptions(opts)` | Custom driver options | `nil` |
+| `WithEncryptionKey(hexKey)` | Enables `Encrypt` / `Decrypt` (AES-256-GCM, 64 hex chars) | disabled |
+
+## Field Encryption
+
+Encrypt sensitive fields before storing them, with one key per database:
+
+```go
+client, err := mongokit.New(mongokit.DefaultConfig(),
+    mongokit.WithURI(uri),
+    mongokit.WithDatabase("myapp"),
+    mongokit.WithEncryptionKey(os.Getenv("MONGODB_ENCRYPTION_KEY")), // openssl rand -hex 32
+)
+
+doc.Token, err = client.Encrypt(token)   // before saving
+token, err := client.Decrypt(doc.Token)  // after reading
+```
+
+- Values are base64 of nonce + ciphertext + tag. The same value encrypts differently each time, so encrypted fields cannot be queried by equality.
+- **Key check on connect.** The first client stores a known value encrypted with its key in the `_mongokit` collection (`_id: "encryption_check"`); every later client must decrypt it, or `New` fails with `ErrEncryptionKeyMismatch`. A client with the wrong key (e.g. a developer's machine pointed at a shared database) fails at startup instead of writing data nobody else can read. The database user needs write access to create that collection.
+- Without a key nothing changes: no `_mongokit` collection, and `Encrypt` / `Decrypt` return `ErrEncryptionDisabled`.
+- Never change the key of a database that holds encrypted data: those values can no longer be decrypted.
 
 ## Query Builder
 
