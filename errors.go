@@ -62,6 +62,20 @@ var (
 	// ErrClientClosed is returned when an operation is attempted on a closed client.
 	// Use errors.Is(err, mongo.ErrClientClosed) to check for this error.
 	ErrClientClosed = errors.New("mongo: client is closed")
+
+	// ErrEncryptionDisabled is returned by Encrypt and Decrypt when the client
+	// was created without WithEncryptionKey.
+	ErrEncryptionDisabled = errors.New("mongo: encryption is disabled (no encryption key configured)")
+
+	// ErrEncryptionKeyMismatch is returned by New when the database already
+	// holds a check value encrypted with a different key: data encrypted by
+	// other clients could not be read, and data written by this one could not
+	// be read by them.
+	ErrEncryptionKeyMismatch = errors.New("mongo: encryption key does not match the key this database was initialized with")
+
+	// ErrDecryptionFailed is returned by Decrypt when a value is not valid
+	// ciphertext for the client's key (wrong key, corrupted or not encrypted).
+	ErrDecryptionFailed = errors.New("mongo: decryption failed")
 )
 
 // Internal constructor functions
